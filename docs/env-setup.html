@@ -1,0 +1,479 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Cognis Environment Setup</title>
+  <style>
+    :root {
+      --bg: #f4f1ea;
+      --panel: #fffdf8;
+      --ink: #1f2a37;
+      --muted: #596579;
+      --line: #d9d0c0;
+      --brand: #0b6e4f;
+      --brand-2: #13795b;
+      --warn: #8f3b1b;
+      --shadow: 0 14px 38px rgba(31, 42, 55, 0.12);
+      --radius: 16px;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: "Avenir Next", "Segoe UI", "Trebuchet MS", sans-serif;
+      color: var(--ink);
+      background:
+        radial-gradient(1200px 600px at 90% -10%, #d6ead7 0%, transparent 70%),
+        radial-gradient(900px 500px at -10% 110%, #f7dcbc 0%, transparent 65%),
+        var(--bg);
+      min-height: 100vh;
+      padding: 28px 18px 40px;
+    }
+    .wrap { max-width: 1180px; margin: 0 auto; }
+    .hero { margin-bottom: 18px; }
+    h1 {
+      margin: 0 0 8px;
+      font-size: clamp(1.4rem, 2.6vw, 2.2rem);
+      letter-spacing: .3px;
+    }
+    .sub {
+      margin: 0;
+      color: var(--muted);
+      max-width: 66ch;
+      line-height: 1.45;
+    }
+    .grid {
+      display: grid;
+      grid-template-columns: 1.1fr .9fr;
+      gap: 16px;
+    }
+    .panel {
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+      overflow: hidden;
+    }
+    .panel .head {
+      padding: 14px 16px;
+      border-bottom: 1px solid var(--line);
+      background: linear-gradient(180deg, #fff, #f8f5ee);
+      font-weight: 700;
+    }
+    .panel .body { padding: 14px 16px 16px; }
+    .stack { display: grid; gap: 10px; }
+    .row { display: grid; gap: 6px; }
+    label { font-size: .93rem; font-weight: 600; }
+    .hint { font-size: .82rem; color: var(--muted); margin-top: 2px; }
+    input, select, textarea {
+      width: 100%;
+      border: 1px solid #cfc5b4;
+      border-radius: 10px;
+      padding: 10px 12px;
+      background: #fff;
+      font: inherit;
+      color: var(--ink);
+    }
+    textarea {
+      min-height: 420px;
+      font-family: "SF Mono", Menlo, Consolas, monospace;
+      font-size: 12px;
+      line-height: 1.45;
+      resize: vertical;
+      white-space: pre;
+    }
+    .chips {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 8px;
+    }
+    .chip {
+      border: 1px solid #cabfae;
+      border-radius: 12px;
+      padding: 10px;
+      background: #fff;
+      cursor: pointer;
+      text-align: left;
+      font: inherit;
+      color: var(--ink);
+    }
+    .chip strong { display: block; font-size: .92rem; margin-bottom: 3px; }
+    .chip span { font-size: .79rem; color: var(--muted); }
+    .chip.active {
+      border-color: var(--brand);
+      box-shadow: inset 0 0 0 2px rgba(11, 110, 79, .12);
+      background: #f1faf4;
+    }
+    .cols-2 {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+    }
+    details {
+      border: 1px dashed #c8bfaf;
+      border-radius: 12px;
+      padding: 8px 10px;
+      background: #faf7f2;
+    }
+    summary {
+      cursor: pointer;
+      font-weight: 650;
+      color: #3e4754;
+    }
+    .actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-top: 10px;
+    }
+    button.action {
+      border: 0;
+      border-radius: 10px;
+      padding: 10px 14px;
+      background: var(--brand);
+      color: #fff;
+      font: inherit;
+      font-weight: 650;
+      cursor: pointer;
+    }
+    button.action.secondary {
+      background: #e9ecef;
+      color: #202731;
+    }
+    .msg {
+      font-size: .82rem;
+      color: var(--warn);
+      min-height: 16px;
+      margin-top: 4px;
+    }
+    .hide { display: none; }
+    @media (max-width: 980px) {
+      .grid { grid-template-columns: 1fr; }
+      .chips { grid-template-columns: 1fr; }
+      .cols-2 { grid-template-columns: 1fr; }
+      textarea { min-height: 320px; }
+    }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <section class="hero">
+      <h1>Cognis `.env` Builder</h1>
+      <p class="sub">Choose a provider preset, fill only what you need, then copy or download a complete `.env`. This page runs locally in your browser and does not send data anywhere.</p>
+    </section>
+
+    <section class="grid">
+      <article class="panel">
+        <div class="head">Setup Inputs</div>
+        <div class="body stack">
+          <div class="row">
+            <label>Provider Preset</label>
+            <div class="chips" id="providerChips">
+              <button class="chip active" data-provider="bedrock_openai" type="button">
+                <strong>Bedrock OpenAI (Token)</strong><span>Use `AWS_BEARER_TOKEN`</span>
+              </button>
+              <button class="chip" data-provider="bedrock" type="button">
+                <strong>Bedrock Native (IAM)</strong><span>Use AWS profile/role/static creds</span>
+              </button>
+              <button class="chip" data-provider="openrouter" type="button">
+                <strong>OpenRouter</strong><span>Use `OPENROUTER_API_KEY`</span>
+              </button>
+              <button class="chip" data-provider="openai" type="button">
+                <strong>OpenAI</strong><span>Use `OPENAI_API_KEY`</span>
+              </button>
+            </div>
+          </div>
+
+          <div class="cols-2">
+            <div class="row">
+              <label for="provider">COGNIS_PROVIDER</label>
+              <input id="provider" value="bedrock_openai">
+            </div>
+            <div class="row">
+              <label for="model">COGNIS_MODEL</label>
+              <input id="model" value="openai.gpt-oss-20b-1:0">
+            </div>
+          </div>
+
+          <div class="cols-2">
+            <div class="row">
+              <label for="gatewayPort">COGNIS_GATEWAY_PORT</label>
+              <input id="gatewayPort" value="8787">
+            </div>
+            <div class="row">
+              <label for="mcpPort">COGNIS_MCP_PORT</label>
+              <input id="mcpPort" value="8791">
+            </div>
+          </div>
+
+          <div id="secBedrockOpenAi" class="stack">
+            <div class="row">
+              <label for="awsRegion">AWS_REGION</label>
+              <input id="awsRegion" value="us-east-1">
+            </div>
+            <div class="row">
+              <label for="awsBearerToken">AWS_BEARER_TOKEN</label>
+              <input id="awsBearerToken" placeholder="ABSK...">
+            </div>
+            <div class="row">
+              <label for="bedrockOpenAiBase">BEDROCK_OPENAI_API_BASE</label>
+              <input id="bedrockOpenAiBase" placeholder="https://bedrock-runtime.us-east-1.amazonaws.com/openai/v1">
+              <div class="hint">Leave blank to auto-derive from `AWS_REGION`.</div>
+            </div>
+          </div>
+
+          <div id="secBedrockNative" class="stack hide">
+            <div class="cols-2">
+              <div class="row">
+                <label for="awsRegionNative">AWS_REGION</label>
+                <input id="awsRegionNative" value="us-east-1">
+              </div>
+              <div class="row">
+                <label for="awsProfile">AWS_PROFILE</label>
+                <input id="awsProfile" placeholder="default">
+              </div>
+            </div>
+            <div class="cols-2">
+              <div class="row">
+                <label for="awsAccessKey">AWS_ACCESS_KEY_ID</label>
+                <input id="awsAccessKey">
+              </div>
+              <div class="row">
+                <label for="awsSecretKey">AWS_SECRET_ACCESS_KEY</label>
+                <input id="awsSecretKey">
+              </div>
+            </div>
+            <div class="row">
+              <label for="awsSessionToken">AWS_SESSION_TOKEN</label>
+              <input id="awsSessionToken">
+            </div>
+            <div class="row">
+              <label for="bedrockBase">BEDROCK_API_BASE</label>
+              <input id="bedrockBase" placeholder="optional endpoint override">
+            </div>
+          </div>
+
+          <div id="secOpenRouter" class="stack hide">
+            <div class="row">
+              <label for="openrouterKey">OPENROUTER_API_KEY</label>
+              <input id="openrouterKey" placeholder="sk-or-...">
+            </div>
+            <div class="row">
+              <label for="openrouterBase">OPENROUTER_API_BASE</label>
+              <input id="openrouterBase" value="https://openrouter.ai/api/v1">
+            </div>
+          </div>
+
+          <div id="secOpenAi" class="stack hide">
+            <div class="row">
+              <label for="openaiKey">OPENAI_API_KEY</label>
+              <input id="openaiKey" placeholder="sk-...">
+            </div>
+            <div class="row">
+              <label for="openaiBase">OPENAI_API_BASE</label>
+              <input id="openaiBase" value="https://api.openai.com/v1">
+            </div>
+          </div>
+
+          <details>
+            <summary>Optional Integrations</summary>
+            <div class="stack" style="margin-top: 10px;">
+              <div class="cols-2">
+                <div class="row">
+                  <label for="twilioSid">TWILIO_ACCOUNT_SID</label>
+                  <input id="twilioSid">
+                </div>
+                <div class="row">
+                  <label for="twilioToken">TWILIO_AUTH_TOKEN</label>
+                  <input id="twilioToken">
+                </div>
+              </div>
+              <div class="cols-2">
+                <div class="row">
+                  <label for="stripeKey">STRIPE_API_KEY</label>
+                  <input id="stripeKey">
+                </div>
+                <div class="row">
+                  <label for="webSearchApiKey">WEB_SEARCH_API_KEY</label>
+                  <input id="webSearchApiKey">
+                </div>
+              </div>
+            </div>
+          </details>
+        </div>
+      </article>
+
+      <article class="panel">
+        <div class="head">Generated `.env`</div>
+        <div class="body">
+          <textarea id="envOutput" spellcheck="false"></textarea>
+          <div class="actions">
+            <button class="action" id="copyBtn" type="button">Copy</button>
+            <button class="action secondary" id="downloadBtn" type="button">Download `.env`</button>
+            <button class="action secondary" id="resetBtn" type="button">Reset</button>
+          </div>
+          <div id="message" class="msg"></div>
+        </div>
+      </article>
+    </section>
+  </div>
+
+  <script>
+    const ids = [
+      "provider", "model", "gatewayPort", "mcpPort",
+      "awsRegion", "awsBearerToken", "bedrockOpenAiBase",
+      "awsRegionNative", "awsProfile", "awsAccessKey", "awsSecretKey", "awsSessionToken", "bedrockBase",
+      "openrouterKey", "openrouterBase", "openaiKey", "openaiBase",
+      "twilioSid", "twilioToken", "stripeKey", "webSearchApiKey"
+    ];
+    const fields = Object.fromEntries(ids.map((id) => [id, document.getElementById(id)]));
+    const output = document.getElementById("envOutput");
+    const message = document.getElementById("message");
+    const chips = [...document.querySelectorAll(".chip")];
+
+    function setPreset(provider) {
+      fields.provider.value = provider;
+      chips.forEach((chip) => chip.classList.toggle("active", chip.dataset.provider === provider));
+
+      document.getElementById("secBedrockOpenAi").classList.toggle("hide", provider !== "bedrock_openai");
+      document.getElementById("secBedrockNative").classList.toggle("hide", provider !== "bedrock");
+      document.getElementById("secOpenRouter").classList.toggle("hide", provider !== "openrouter");
+      document.getElementById("secOpenAi").classList.toggle("hide", provider !== "openai");
+
+      if (provider === "bedrock_openai") fields.model.value = "openai.gpt-oss-20b-1:0";
+      if (provider === "bedrock") fields.model.value = "anthropic.claude-3-5-sonnet-20241022-v2:0";
+      if (provider === "openrouter") fields.model.value = "anthropic/claude-opus-4-5";
+      if (provider === "openai") fields.model.value = "gpt-5";
+      render();
+    }
+
+    function autoBedrockOpenAiBase() {
+      const region = fields.awsRegion.value.trim() || "us-east-1";
+      return `https://bedrock-runtime.${region}.amazonaws.com/openai/v1`;
+    }
+
+    function buildEnv() {
+      const provider = fields.provider.value.trim() || "bedrock_openai";
+      const model = fields.model.value.trim() || "openai.gpt-oss-20b-1:0";
+      const awsRegion = (provider === "bedrock") ? fields.awsRegionNative.value.trim() : fields.awsRegion.value.trim();
+      const bedrockOpenAiBase = fields.bedrockOpenAiBase.value.trim() || autoBedrockOpenAiBase();
+
+      return `# Required: pick at least one provider credential.
+OPENROUTER_API_KEY=${fields.openrouterKey.value.trim()}
+OPENAI_API_KEY=${fields.openaiKey.value.trim()}
+ANTHROPIC_API_KEY=
+# Bedrock can use IAM role/default AWS credential chain (no static keys required).
+AWS_REGION=${awsRegion}
+AWS_DEFAULT_REGION=
+AWS_ACCESS_KEY_ID=${fields.awsAccessKey.value.trim()}
+AWS_SECRET_ACCESS_KEY=${fields.awsSecretKey.value.trim()}
+AWS_SESSION_TOKEN=${fields.awsSessionToken.value.trim()}
+AWS_PROFILE=${fields.awsProfile.value.trim()}
+# Bedrock OpenAI-compatible API token (optional alternate path)
+AWS_BEARER_TOKEN=${fields.awsBearerToken.value.trim()}
+
+# Optional provider defaults.
+COGNIS_PROVIDER=${provider}
+COGNIS_MODEL=${model}
+
+# Optional overrides.
+OPENROUTER_API_BASE=${fields.openrouterBase.value.trim() || "https://openrouter.ai/api/v1"}
+OPENAI_API_BASE=${fields.openaiBase.value.trim() || "https://api.openai.com/v1"}
+ANTHROPIC_API_BASE=https://api.anthropic.com/v1
+BEDROCK_API_BASE=${fields.bedrockBase.value.trim()}
+BEDROCK_OPENAI_API_BASE=${bedrockOpenAiBase}
+WEB_SEARCH_API_KEY=${fields.webSearchApiKey.value.trim()}
+COGNIS_GATEWAY_PORT=${fields.gatewayPort.value.trim() || "8787"}
+COGNIS_CONVERSATION_STORE=sqlite
+COGNIS_CONVERSATION_SQLITE_PATH=
+
+# Optional: set false to keep an existing config file untouched.
+COGNIS_WRITE_CONFIG=true
+
+# Cognis MCP server (optional)
+COGNIS_MCP_PORT=${fields.mcpPort.value.trim() || "8791"}
+COGNIS_MCP_HTTP_TIMEOUT_SECONDS=25
+COGNIS_MCP_BASE_URL=http://127.0.0.1:${fields.mcpPort.value.trim() || "8791"}
+
+# Integration providers for MCP server (optional)
+STRIPE_API_KEY=${fields.stripeKey.value.trim()}
+STRIPE_BASE_URL=https://api.stripe.com/v1
+AMAZON_API_KEY=
+AMAZON_BASE_URL=https://api.amazon.com
+UBER_API_KEY=
+UBER_BASE_URL=https://api.uber.com/v1
+LYFT_API_KEY=
+LYFT_BASE_URL=https://api.lyft.com/v1
+INSTACART_API_KEY=
+INSTACART_BASE_URL=https://connect.instacart.com
+DOORDASH_API_KEY=
+DOORDASH_BASE_URL=https://openapi.doordash.com
+TWILIO_ACCOUNT_SID=${fields.twilioSid.value.trim()}
+TWILIO_AUTH_TOKEN=${fields.twilioToken.value.trim()}
+TWILIO_BASE_URL=https://api.twilio.com/2010-04-01
+`;
+    }
+
+    function render() {
+      output.value = buildEnv();
+    }
+
+    function showMessage(text, isError = false) {
+      message.textContent = text;
+      message.style.color = isError ? "#8f3b1b" : "#0b6e4f";
+      window.setTimeout(() => { message.textContent = ""; }, 2400);
+    }
+
+    chips.forEach((chip) => chip.addEventListener("click", () => setPreset(chip.dataset.provider)));
+    ids.forEach((id) => fields[id].addEventListener("input", render));
+
+    document.getElementById("copyBtn").addEventListener("click", async () => {
+      try {
+        await navigator.clipboard.writeText(output.value);
+        showMessage("Copied .env to clipboard.");
+      } catch (e) {
+        showMessage("Clipboard failed. Copy manually from the text area.", true);
+      }
+    });
+
+    document.getElementById("downloadBtn").addEventListener("click", () => {
+      const blob = new Blob([output.value], { type: "text/plain;charset=utf-8" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = ".env";
+      a.click();
+      URL.revokeObjectURL(url);
+      showMessage("Downloaded .env.");
+    });
+
+    document.getElementById("resetBtn").addEventListener("click", () => {
+      fields.provider.value = "bedrock_openai";
+      fields.model.value = "openai.gpt-oss-20b-1:0";
+      fields.gatewayPort.value = "8787";
+      fields.mcpPort.value = "8791";
+      fields.awsRegion.value = "us-east-1";
+      fields.awsBearerToken.value = "";
+      fields.bedrockOpenAiBase.value = "";
+      fields.awsRegionNative.value = "us-east-1";
+      fields.awsProfile.value = "";
+      fields.awsAccessKey.value = "";
+      fields.awsSecretKey.value = "";
+      fields.awsSessionToken.value = "";
+      fields.bedrockBase.value = "";
+      fields.openrouterKey.value = "";
+      fields.openrouterBase.value = "https://openrouter.ai/api/v1";
+      fields.openaiKey.value = "";
+      fields.openaiBase.value = "https://api.openai.com/v1";
+      fields.twilioSid.value = "";
+      fields.twilioToken.value = "";
+      fields.stripeKey.value = "";
+      fields.webSearchApiKey.value = "";
+      setPreset("bedrock_openai");
+      showMessage("Reset defaults.");
+    });
+
+    setPreset("bedrock_openai");
+  </script>
+</body>
+</html>

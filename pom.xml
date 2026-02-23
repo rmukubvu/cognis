@@ -31,6 +31,7 @@
     <jsoup.version>1.18.3</jsoup.version>
     <undertow.version>2.3.18.Final</undertow.version>
     <sqlite.jdbc.version>3.49.1.0</sqlite.jdbc.version>
+    <aws.sdk.version>2.31.18</aws.sdk.version>
   </properties>
 
   <dependencyManagement>
@@ -84,6 +85,11 @@
         <groupId>org.xerial</groupId>
         <artifactId>sqlite-jdbc</artifactId>
         <version>${sqlite.jdbc.version}</version>
+      </dependency>
+      <dependency>
+        <groupId>software.amazon.awssdk</groupId>
+        <artifactId>bedrockruntime</artifactId>
+        <version>${aws.sdk.version}</version>
       </dependency>
     </dependencies>
   </dependencyManagement>

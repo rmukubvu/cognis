@@ -140,6 +140,8 @@ Fix:
 Fix:
 
 1. Confirm `.env` has matching key for selected provider.
+   For `bedrock`, ensure `AWS_REGION` (or `AWS_DEFAULT_REGION`) is set and credentials are available via role/profile/static keys.
+   For `bedrock_openai`, ensure `AWS_BEARER_TOKEN` is set (and optionally `BEDROCK_OPENAI_API_BASE`).
 2. Confirm `COGNIS_PROVIDER` is set correctly.
 3. Restart container to regenerate/refresh config if needed.
 
@@ -191,4 +193,3 @@ docker compose logs -f cognis
 ```
 
 Then re-run checks from Sections 3 and 4.
-

@@ -21,6 +21,7 @@ import io.cognis.core.config.model.ProviderConfig;
 import io.cognis.core.integration.mcp.McpInvoker;
 import io.cognis.core.integration.mcp.McpToolClient;
 import io.cognis.core.provider.AnthropicProvider;
+import io.cognis.core.provider.BedrockProvider;
 import io.cognis.core.provider.CodexResponsesProvider;
 import io.cognis.core.provider.DisabledProvider;
 import io.cognis.core.provider.FallbackLlmProvider;
@@ -76,6 +77,8 @@ public final class CognisApplication {
         LlmProvider openrouter = buildOpenAiCompatProvider("openrouter", config.providers().openrouter(), "https://openrouter.ai/api/v1");
         LlmProvider openai = buildOpenAiCompatProvider("openai", config.providers().openai(), "https://api.openai.com/v1");
         LlmProvider anthropic = buildAnthropicProvider("anthropic", config.providers().anthropic(), "https://api.anthropic.com/v1");
+        LlmProvider bedrock = buildBedrockProvider("bedrock", config.providers().bedrock(), "us-east-1");
+        LlmProvider bedrockOpenai = buildBedrockOpenAiProvider("bedrock_openai", config.providers().bedrockOpenai(), "us-east-1");
         LlmProvider codex = buildCodexProvider(
             "openai_codex",
             config.providers().openaiCodex(),
@@ -88,11 +91,13 @@ public final class CognisApplication {
         );
 
         ProviderRegistry providerRegistry = new ProviderRegistry();
-        providerRegistry.register(new FallbackLlmProvider("openrouter", List.of(openrouter, openai, anthropic)));
-        providerRegistry.register(new FallbackLlmProvider("openai", List.of(openai, openrouter, anthropic)));
-        providerRegistry.register(new FallbackLlmProvider("anthropic", List.of(anthropic, openrouter, openai)));
-        providerRegistry.register(new FallbackLlmProvider("openai_codex", List.of(codex, openai, openrouter, anthropic)));
-        providerRegistry.register(new FallbackLlmProvider("github_copilot", List.of(copilot, openai, openrouter, anthropic)));
+        providerRegistry.register(new FallbackLlmProvider("openrouter", List.of(openrouter, openai, anthropic, bedrockOpenai, bedrock)));
+        providerRegistry.register(new FallbackLlmProvider("openai", List.of(openai, openrouter, anthropic, bedrockOpenai, bedrock)));
+        providerRegistry.register(new FallbackLlmProvider("anthropic", List.of(anthropic, openrouter, openai, bedrockOpenai, bedrock)));
+        providerRegistry.register(new FallbackLlmProvider("bedrock", List.of(bedrock, bedrockOpenai, openrouter, openai, anthropic)));
+        providerRegistry.register(new FallbackLlmProvider("bedrock_openai", List.of(bedrockOpenai, bedrock, openai, openrouter, anthropic)));
+        providerRegistry.register(new FallbackLlmProvider("openai_codex", List.of(codex, openai, openrouter, anthropic, bedrockOpenai, bedrock)));
+        providerRegistry.register(new FallbackLlmProvider("github_copilot", List.of(copilot, openai, openrouter, anthropic, bedrockOpenai, bedrock)));
 
         Path workspacePath = ConfigPaths.resolveWorkspace(config.agents().defaults().workspace());
         CronService cronService = new CronService(
@@ -253,6 +258,67 @@ public final class CognisApplication {
             );
         }
         return new DisabledProvider(name, "missing API key");
+    }
+
+    private static LlmProvider buildBedrockProvider(
+        String name,
+        ProviderConfig providerConfig,
+        String defaultRegion
+    ) {
+        String envRegion = System.getenv().getOrDefault("AWS_REGION", System.getenv("AWS_DEFAULT_REGION"));
+        String region = providerConfig != null && providerConfig.region() != null && !providerConfig.region().isBlank()
+            ? providerConfig.region()
+            : (envRegion == null || envRegion.isBlank() ? defaultRegion : envRegion);
+
+        if (providerConfig == null) {
+            providerConfig = ProviderConfig.defaults();
+        }
+
+        if (!providerConfig.configuredForBedrock() && (region == null || region.isBlank())) {
+            return new DisabledProvider(name, "missing AWS region");
+        }
+
+        try {
+            return new BedrockProvider(
+                name,
+                region,
+                providerConfig.apiBase(),
+                providerConfig.accessKeyId(),
+                providerConfig.secretAccessKey(),
+                providerConfig.sessionToken(),
+                providerConfig.profile()
+            );
+        } catch (Exception e) {
+            return new DisabledProvider(name, e.getMessage());
+        }
+    }
+
+    private static LlmProvider buildBedrockOpenAiProvider(
+        String name,
+        ProviderConfig providerConfig,
+        String defaultRegion
+    ) {
+        String envRegion = System.getenv().getOrDefault("AWS_REGION", System.getenv("AWS_DEFAULT_REGION"));
+        String region = providerConfig != null && providerConfig.region() != null && !providerConfig.region().isBlank()
+            ? providerConfig.region()
+            : (envRegion == null || envRegion.isBlank() ? defaultRegion : envRegion);
+        String defaultBase = "https://bedrock-runtime." + region + ".amazonaws.com/openai/v1";
+
+        if (providerConfig == null) {
+            providerConfig = ProviderConfig.defaults();
+        }
+
+        String apiKey = providerConfig.apiKey() == null || providerConfig.apiKey().isBlank()
+            ? System.getenv().getOrDefault("AWS_BEARER_TOKEN", "")
+            : providerConfig.apiKey();
+        if (apiKey.isBlank()) {
+            return new DisabledProvider(name, "missing AWS bearer token");
+        }
+
+        String apiBase = providerConfig.apiBase() == null || providerConfig.apiBase().isBlank()
+            ? System.getenv().getOrDefault("BEDROCK_OPENAI_API_BASE", defaultBase)
+            : providerConfig.apiBase();
+        return new OpenAiCompatProvider(name, apiKey, apiBase, Map.of());
     }
 
     private static VisionTool resolveVisionTool(CognisConfig config) {

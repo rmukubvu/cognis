@@ -16,6 +16,10 @@ public final class ProviderRouter {
         }
 
         String normalizedModel = model == null ? "" : model.toLowerCase(Locale.ROOT);
+        if (normalizedModel.startsWith("bedrock/")) {
+            return registry.find("bedrock")
+                .orElseThrow(() -> new IllegalArgumentException("Provider bedrock is not registered"));
+        }
         if (normalizedModel.contains("codex")) {
             return registry.find("openai_codex")
                 .orElseThrow(() -> new IllegalArgumentException("Provider openai_codex is not registered"));

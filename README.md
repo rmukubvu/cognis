@@ -60,7 +60,7 @@ clawmobile (mobile)
 
 - Java 21 runtime (virtual threads used in gateway execution path)
 - Multi-provider routing + fallback chains
-  - `openrouter`, `openai`, `anthropic`, `openai_codex`, `github_copilot`
+  - `openrouter`, `openai`, `anthropic`, `bedrock`, `bedrock_openai`, `openai_codex`, `github_copilot`
 - Tooling
   - `filesystem`, `shell`, `web`, `cron`, `message`, `memory`, `profile`, `notify`, `payments`, `workflow`, `vision` (when configured)
 - Mobile gateway
@@ -106,12 +106,22 @@ cp .env.example .env
 
 If `.env.example` does not show in Finder, enable hidden files with `Cmd+Shift+.` or run `ls -la`.
 
-2. Set at least one provider API key in `.env`:
+2. Set at least one provider credential in `.env`:
 
 ```bash
 OPENROUTER_API_KEY=...
 # or OPENAI_API_KEY=...
 # or ANTHROPIC_API_KEY=...
+# or Bedrock via IAM credentials/role:
+# AWS_REGION=us-east-1
+# AWS_ACCESS_KEY_ID=...
+# AWS_SECRET_ACCESS_KEY=...
+# AWS_SESSION_TOKEN=...   # only for temporary credentials
+# AWS_PROFILE=...         # optional local profile alternative
+# or Bedrock OpenAI-compatible endpoint (bearer token):
+# COGNIS_PROVIDER=bedrock_openai
+# AWS_BEARER_TOKEN=...
+# BEDROCK_OPENAI_API_BASE=https://bedrock-runtime.us-east-1.amazonaws.com/openai/v1
 ```
 
 3. Start Cognis gateway + MCP server + dashboard:
@@ -261,6 +271,11 @@ Important environment variables:
 - `OPENROUTER_API_KEY`
 - `OPENAI_API_KEY`
 - `ANTHROPIC_API_KEY`
+- `AWS_REGION` (or `AWS_DEFAULT_REGION`) for Bedrock
+- Optional static Bedrock credentials: `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, `AWS_SESSION_TOKEN`
+- Optional local profile for Bedrock: `AWS_PROFILE`
+- `AWS_BEARER_TOKEN` for `bedrock_openai`
+- Optional `BEDROCK_OPENAI_API_BASE` (default is region-derived Bedrock `/openai/v1` endpoint)
 - `COGNIS_PROVIDER` (default: `openrouter`)
 - `COGNIS_MODEL` (default: `anthropic/claude-opus-4-5`)
 - `WEB_SEARCH_API_KEY` (used by `web` tool search action)
@@ -270,6 +285,10 @@ Important environment variables:
 - `COGNIS_WRITE_CONFIG` (default: `true`)
 
 See `.env.example`.
+
+Optional helper:
+
+- Open `docs/env-setup.html` in a browser to generate a ready-to-paste `.env` with provider presets.
 
 ## API Reference
 

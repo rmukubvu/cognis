@@ -18,6 +18,7 @@ class ProviderRouterTest {
         registry.register(new StubProvider("openrouter"));
         registry.register(new StubProvider("openai_codex"));
         registry.register(new StubProvider("github_copilot"));
+        registry.register(new StubProvider("bedrock"));
 
         ProviderRouter router = new ProviderRouter(registry);
 
@@ -25,6 +26,7 @@ class ProviderRouterTest {
         assertThat(router.resolve(null, "gpt-5").name()).isEqualTo("openai");
         assertThat(router.resolve(null, "openai-codex/gpt-5-codex").name()).isEqualTo("openai_codex");
         assertThat(router.resolve(null, "copilot/o4-mini").name()).isEqualTo("github_copilot");
+        assertThat(router.resolve(null, "bedrock/anthropic.claude-3-7-sonnet-20250219-v1:0").name()).isEqualTo("bedrock");
         assertThat(router.resolve(null, "some-model").name()).isEqualTo("openrouter");
     }
 
@@ -41,9 +43,11 @@ class ProviderRouterTest {
     void shouldResolvePreferredProviderWithHyphenAlias() {
         ProviderRegistry registry = new ProviderRegistry();
         registry.register(new StubProvider("openai_codex"));
+        registry.register(new StubProvider("bedrock_openai"));
         ProviderRouter router = new ProviderRouter(registry);
 
         assertThat(router.resolve("openai-codex", "ignored").name()).isEqualTo("openai_codex");
+        assertThat(router.resolve("bedrock-openai", "ignored").name()).isEqualTo("bedrock_openai");
     }
 
     private record StubProvider(String name) implements LlmProvider {

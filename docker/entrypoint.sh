@@ -30,6 +30,20 @@ if [ "${COGNIS_WRITE_CONFIG:-true}" = "true" ] || [ ! -f "${CONFIG_PATH}" ]; the
     "anthropic": {
       "apiKey": "${ANTHROPIC_API_KEY:-}",
       "apiBase": "${ANTHROPIC_API_BASE:-https://api.anthropic.com/v1}"
+    },
+    "bedrock": {
+      "authMethod": "aws",
+      "apiBase": "${BEDROCK_API_BASE:-}",
+      "region": "${AWS_REGION:-${AWS_DEFAULT_REGION:-}}",
+      "accessKeyId": "${AWS_ACCESS_KEY_ID:-}",
+      "secretAccessKey": "${AWS_SECRET_ACCESS_KEY:-}",
+      "sessionToken": "${AWS_SESSION_TOKEN:-}",
+      "profile": "${AWS_PROFILE:-}"
+    },
+    "bedrock_openai": {
+      "apiKey": "${AWS_BEARER_TOKEN:-}",
+      "apiBase": "${BEDROCK_OPENAI_API_BASE:-https://bedrock-runtime.${AWS_REGION:-${AWS_DEFAULT_REGION:-us-east-1}}.amazonaws.com/openai/v1}",
+      "region": "${AWS_REGION:-${AWS_DEFAULT_REGION:-us-east-1}}"
     }
   },
   "tools": {

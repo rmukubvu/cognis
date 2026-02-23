@@ -15,11 +15,13 @@ cp .env.example .env
 
 If `.env.example` does not appear in Finder, show hidden files with `Cmd+Shift+.` or run `ls -la`.
 
-Set at least one provider key in `.env`:
+Set at least one provider credential in `.env`:
 
 - `OPENROUTER_API_KEY`
 - or `OPENAI_API_KEY`
 - or `ANTHROPIC_API_KEY`
+- or Bedrock credentials (`AWS_REGION` plus either IAM role, `AWS_PROFILE`, or static keys)
+- or Bedrock OpenAI-compatible token (`COGNIS_PROVIDER=bedrock_openai` + `AWS_BEARER_TOKEN`)
 
 ## Build And Test
 
