@@ -153,12 +153,10 @@ End-to-end flow using the ClawMobile app connected to a local Cognis gateway.
 5. Review the cleaner settings menu layout.
 6. Open Spending Controls from Settings and adjust limits.
 
-<img src="docs/images/cognis-clawmobile-01-chat-list.png" alt="Chat list with Cognis" width="200" />
-<img src="docs/images/cognis-clawmobile-02-agents-edit.png" alt="Agents edit and connection" width="200" />
-<img src="docs/images/cognis-clawmobile-03-chat-starter.png" alt="Conversation starter" width="200" />
-<img src="docs/images/cognis-clawmobile-04-reminder-flow.png" alt="Reminder flow with acknowledgement and notification" width="200" />
-<img src="docs/images/cognis-clawmobile-05-settings-overview.png" alt="Settings overview" width="200" />
-<img src="docs/images/cognis-clawmobile-06-spending-controls.png" alt="Spending controls screen" width="200" />
+| | | |
+|---|---|---|
+| <img src="docs/images/cognis-clawmobile-01-chat-list.png" alt="Chat list with Cognis" width="200" /> | <img src="docs/images/cognis-clawmobile-02-agents-edit.png" alt="Agents edit and connection" width="200" /> | <img src="docs/images/cognis-clawmobile-03-chat-starter.png" alt="Conversation starter" width="200" /> |
+| <img src="docs/images/cognis-clawmobile-04-reminder-flow.png" alt="Reminder flow with acknowledgement and notification" width="200" /> | <img src="docs/images/cognis-clawmobile-05-settings-overview.png" alt="Settings overview" width="200" /> | <img src="docs/images/cognis-clawmobile-06-spending-controls.png" alt="Spending controls screen" width="200" /> |
 
 ## Quick Start (Local Maven)
 
