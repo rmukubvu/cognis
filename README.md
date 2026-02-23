@@ -217,6 +217,12 @@ Recommended skill-driven pattern:
 2. Use `profile` / `memory` to persist aliases (for example `contacts.wife.sms=+1...`).
 3. Use `mcp` action `call_tool` with resolved values (for example `twilio.send_sms`).
 
+### MCP SMS In Action
+
+| | |
+|---|---|
+| <img src="docs/images/cognis-mcp-simulator-proof.png" alt="Simulator screenshot showing Cognis MCP SMS flow" width="260" /> | <img src="docs/images/cognis-mcp-dashboard-proof.png" alt="Dashboard screenshot showing MCP tool success events" width="260" /> |
+
 See `docs/MCP_SERVER.md` for architecture and provider env vars.
 
 ## Trying Cognis Without WhatsApp

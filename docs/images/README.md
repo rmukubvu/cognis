@@ -8,5 +8,8 @@ Place the screenshot files referenced in `/README.md` in this folder using these
 - `cognis-clawmobile-04-reminder-flow.png`
 - `cognis-clawmobile-05-settings-overview.png`
 - `cognis-clawmobile-06-spending-controls.png`
+- `sms_on_real_phone.png`
+- `cognis-mcp-simulator-proof.png`
+- `cognis-mcp-dashboard-proof.png`
 
 If you prefer different filenames, update the image links in `/README.md` accordingly.
