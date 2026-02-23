@@ -290,6 +290,13 @@ Optional helper:
 
 - Open `docs/env-setup.html` in a browser to generate a ready-to-paste `.env` with provider presets.
 
+### Bedrock Provider
+
+- Reference: [AWS Bedrock OpenAI Chat Completions](https://docs.aws.amazon.com/bedrock/latest/userguide/inference-chat-completions.html)
+- Inspired by James Ward
+
+![Bedrock provider reference](docs/images/bedrock.png)
+
 ## API Reference
 
 ### Health
