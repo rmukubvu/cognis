@@ -44,15 +44,11 @@ public final class McpHttpServer {
         }
 
         if (exchange.getRequestMethod().equalToString("POST") && exchange.getRequestPath().equals("/mcp/call")) {
-            exchange.startBlocking();
-            Map<String, Object> request = mapper.readValue(exchange.getInputStream(), new TypeReference<>() {});
-            String name = String.valueOf(request.getOrDefault("name", ""));
-            @SuppressWarnings("unchecked")
-            Map<String, Object> args = request.get("arguments") instanceof Map<?, ?> m ? (Map<String, Object>) m : Map.of();
-            ToolCallResponse response = router.callTool(name, args);
-            int status = response.ok() ? 200 : 400;
-            exchange.setStatusCode(status);
-            writeJson(exchange, mapper, response);
+            if (exchange.isInIoThread()) {
+                exchange.dispatch(() -> handleToolCall(exchange, router, mapper));
+            } else {
+                handleToolCall(exchange, router, mapper);
+            }
             return;
         }
 
@@ -62,5 +58,25 @@ public final class McpHttpServer {
 
     private void writeJson(HttpServerExchange exchange, ObjectMapper mapper, Object payload) throws IOException {
         exchange.getResponseSender().send(mapper.writeValueAsString(payload));
+    }
+
+    private void handleToolCall(HttpServerExchange exchange, ToolRouter router, ObjectMapper mapper) {
+        try {
+            exchange.startBlocking();
+            Map<String, Object> request = mapper.readValue(exchange.getInputStream(), new TypeReference<>() {});
+            String name = String.valueOf(request.getOrDefault("name", ""));
+            @SuppressWarnings("unchecked")
+            Map<String, Object> args = request.get("arguments") instanceof Map<?, ?> m ? (Map<String, Object>) m : Map.of();
+            ToolCallResponse response = router.callTool(name, args);
+            exchange.setStatusCode(response.ok() ? 200 : 400);
+            writeJson(exchange, mapper, response);
+        } catch (Exception e) {
+            exchange.setStatusCode(500);
+            try {
+                writeJson(exchange, mapper, Map.of("ok", false, "error", e.getMessage()));
+            } catch (IOException ignored) {
+                // no-op
+            }
+        }
     }
 }

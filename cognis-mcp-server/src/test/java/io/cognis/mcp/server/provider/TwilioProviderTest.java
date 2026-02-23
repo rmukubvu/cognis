@@ -39,6 +39,10 @@ class TwilioProviderTest {
             RecordedRequest request = server.takeRequest();
             assertThat(request.getPath()).isEqualTo("/Accounts/AC123/Messages.json");
             assertThat(request.getHeader("Authorization")).startsWith("Basic ");
+            assertThat(request.getHeader("Content-Type")).contains("application/x-www-form-urlencoded");
+            String body = request.getBody().readUtf8();
+            assertThat(body).contains("To=%2B15555550123");
+            assertThat(body).contains("From=%2B15555550999");
         }
     }
 }
