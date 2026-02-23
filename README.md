@@ -14,7 +14,7 @@ Cognis is positioned as a trusted autonomous operator:
 ## Architecture
 
 ```text
-picoclaw-app (mobile)
+clawmobile (mobile)
         |
         | WebSocket + HTTP
         v
