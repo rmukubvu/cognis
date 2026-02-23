@@ -541,7 +541,10 @@ public final class GatewayServer implements AutoCloseable {
                     ));
                     sendWs(channel, new WsOutboundMessage("typing", null, clientId, null, null, null, true));
                     try {
-                        AgentResult result = orchestrator.run(content, agentSettings, workspace);
+                        AgentResult result = orchestrator.run(content, agentSettings, workspace, Map.of(
+                            "client_id", clientId,
+                            "task_id", taskId
+                        ));
                         String responseText = result.content() == null ? "" : result.content();
                         String responseId = UUID.randomUUID().toString();
                         boolean streamed = false;

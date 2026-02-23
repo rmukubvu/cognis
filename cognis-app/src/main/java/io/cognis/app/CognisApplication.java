@@ -164,6 +164,7 @@ public final class CognisApplication {
                 + "Use the workflow tool for daily briefs, goal execution loops, and relationship nudges when relevant. "
                 + "Use the payments tool for guarded purchase flows and always enforce policy before execution. "
                 + "For external services, use the mcp tool to list and call available tools dynamically. "
+                + "Never claim an external action (SMS, payment, booking, ordering) was completed unless a tool call returned success. "
                 + "When users define contact aliases (for example wife/husband), persist them in profile or memory and reuse them in follow-up actions.",
             config.agents().defaults().provider(),
             config.agents().defaults().model(),
