@@ -1,0 +1,6 @@
+.git
+**/target
+.vscode
+.qodo
+docker-data
+.env

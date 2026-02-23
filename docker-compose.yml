@@ -1,0 +1,15 @@
+services:
+  cognis:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: cognis
+    restart: unless-stopped
+    env_file:
+      - .env
+    environment:
+      COGNIS_GATEWAY_PORT: ${COGNIS_GATEWAY_PORT:-8787}
+    ports:
+      - "${COGNIS_GATEWAY_PORT:-8787}:${COGNIS_GATEWAY_PORT:-8787}"
+    volumes:
+      - ./docker-data:/home/cognis/.cognis
