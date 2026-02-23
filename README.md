@@ -2,6 +2,8 @@
 
 Cognis is a Java 21 autonomous agent runtime focused on practical execution: tool use, scheduling, memory, payment guardrails, and auditable operations for mobile-first workflows.
 
+Cognis started from ideas inspired by NanoClaw/OpenClaw, then evolved into a Java-first MCP + mobile architecture.
+
 ## Why Cognis
 
 Cognis is positioned as a trusted autonomous operator:
