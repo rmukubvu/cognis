@@ -15,6 +15,7 @@
     <module>cognis-core</module>
     <module>cognis-cli</module>
     <module>cognis-app</module>
+    <module>cognis-mcp-server</module>
   </modules>
 
   <properties>

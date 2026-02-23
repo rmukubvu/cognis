@@ -50,6 +50,7 @@ clawmobile (mobile)
 
 - Migration plan: `docs/MIGRATION_PLAN.md`
 - Operations runbook: `docs/OPERATIONS.md`
+- MCP server bootstrap guide: `docs/MCP_SERVER.md`
 - Contributing guide: `CONTRIBUTING.md`
 - Mobile test client (React Native): `https://github.com/rmukubvu/clawmobile`
 
@@ -174,6 +175,25 @@ java -jar cognis-app/target/cognis-app-0.1.0-SNAPSHOT.jar onboard
 java -jar cognis-app/target/cognis-app-0.1.0-SNAPSHOT.jar status
 java -jar cognis-app/target/cognis-app-0.1.0-SNAPSHOT.jar agent "Plan my day"
 ```
+
+## MCP Integration Server (Bootstrap)
+
+Cognis now includes a separate Java MCP-style integration server module for external commerce/ride/communications providers.
+
+```bash
+mvn -pl cognis-mcp-server -am package
+java -jar cognis-mcp-server/target/cognis-mcp-server-0.1.0-SNAPSHOT.jar
+```
+
+Default URL: `http://127.0.0.1:8791`
+
+Endpoints:
+
+- `GET /healthz`
+- `GET /mcp/tools`
+- `POST /mcp/call`
+
+See `docs/MCP_SERVER.md` for architecture and provider env vars.
 
 ## Trying Cognis Without WhatsApp
 
