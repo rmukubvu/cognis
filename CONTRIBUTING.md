@@ -9,9 +9,11 @@
 ## Setup
 
 ```bash
-cd /Users/robson/nanobot4j
+cd /path/to/cognis
 cp .env.example .env
 ```
+
+If `.env.example` does not appear in Finder, show hidden files with `Cmd+Shift+.` or run `ls -la`.
 
 Set at least one provider key in `.env`:
 
@@ -24,21 +26,21 @@ Set at least one provider key in `.env`:
 Core tests:
 
 ```bash
-cd /Users/robson/nanobot4j
+cd /path/to/cognis
 mvn test -pl cognis-core
 ```
 
 App compile check (includes module wiring):
 
 ```bash
-cd /Users/robson/nanobot4j
+cd /path/to/cognis
 mvn -pl cognis-app -am -DskipTests compile
 ```
 
 Dashboard checks:
 
 ```bash
-cd /Users/robson/nanobot4j/cognis-dashboard
+cd /path/to/cognis/cognis-dashboard
 npm install
 npm run typecheck
 npm run build
@@ -71,7 +73,7 @@ You can fully test Cognis without WhatsApp integration.
 Fastest path:
 
 ```bash
-cd /Users/robson/nanobot4j
+cd /path/to/cognis
 ./scripts/smoke-test.sh
 ```
 
@@ -87,7 +89,7 @@ Useful smoke-test options:
 2. CLI path
 
 ```bash
-cd /Users/robson/nanobot4j
+cd /path/to/cognis
 java -jar cognis-app/target/cognis-app-0.1.0-SNAPSHOT.jar agent "hello"
 ```
 

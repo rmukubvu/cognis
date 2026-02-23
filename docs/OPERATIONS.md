@@ -14,7 +14,7 @@ This runbook is for local demo operations and day-to-day reliability checks.
 ### Docker (recommended)
 
 ```bash
-cd /Users/robson/nanobot4j
+cd /path/to/cognis
 cp -n .env.example .env
 # set provider key(s) in .env
 docker compose up -d --build
@@ -23,7 +23,7 @@ docker compose up -d --build
 ### Local (Maven)
 
 ```bash
-cd /Users/robson/nanobot4j
+cd /path/to/cognis
 mvn -pl cognis-app -am package
 java -jar cognis-app/target/cognis-app-0.1.0-SNAPSHOT.jar gateway --port 8787
 ```
@@ -31,7 +31,7 @@ java -jar cognis-app/target/cognis-app-0.1.0-SNAPSHOT.jar gateway --port 8787
 ## 2) Shutdown / Restart
 
 ```bash
-cd /Users/robson/nanobot4j
+cd /path/to/cognis
 docker compose down
 docker compose up -d --build
 ```
@@ -75,7 +75,7 @@ curl -s http://127.0.0.1:8787/payments/status
 Start dashboard:
 
 ```bash
-cd /Users/robson/nanobot4j/cognis-dashboard
+cd /path/to/cognis/cognis-dashboard
 npm install
 npm run dev
 ```
@@ -158,7 +158,7 @@ Fix:
 
 Default Docker volume mapping:
 
-- host: `/Users/robson/nanobot4j/docker-data`
+- host: `./docker-data`
 - container: `/home/cognis/.cognis`
 
 Important files:
@@ -184,7 +184,7 @@ Before a live demo:
 If behavior is inconsistent:
 
 ```bash
-cd /Users/robson/nanobot4j
+cd /path/to/cognis
 docker compose down
 docker compose up -d --build
 docker compose logs -f cognis

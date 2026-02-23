@@ -48,9 +48,9 @@ clawmobile (mobile)
 
 ## Documentation
 
-- Migration plan: `/Users/robson/nanobot4j/docs/MIGRATION_PLAN.md`
-- Operations runbook: `/Users/robson/nanobot4j/docs/OPERATIONS.md`
-- Contributing guide: `/Users/robson/nanobot4j/CONTRIBUTING.md`
+- Migration plan: `docs/MIGRATION_PLAN.md`
+- Operations runbook: `docs/OPERATIONS.md`
+- Contributing guide: `CONTRIBUTING.md`
 - Mobile test client (React Native): `https://github.com/rmukubvu/clawmobile`
 
 ## Core Features
@@ -97,9 +97,11 @@ clawmobile (mobile)
 1. Create environment file:
 
 ```bash
-cd /Users/robson/nanobot4j
+cd /path/to/cognis
 cp .env.example .env
 ```
+
+If `.env.example` does not show in Finder, enable hidden files with `Cmd+Shift+.` or run `ls -la`.
 
 2. Set at least one provider API key in `.env`:
 
@@ -143,7 +145,7 @@ docker compose run --rm cognis agent "hello from docker"
 ## Quick Start (Local Maven)
 
 ```bash
-cd /Users/robson/nanobot4j
+cd /path/to/cognis
 mvn test
 mvn -pl cognis-app -am package
 java -jar cognis-app/target/cognis-app-0.1.0-SNAPSHOT.jar gateway --port 8787
@@ -199,7 +201,7 @@ Important environment variables:
 - `COGNIS_CONVERSATION_SQLITE_PATH` (optional custom SQLite path when store is `sqlite`; default: `<workspace>/.cognis/conversations.db`)
 - `COGNIS_WRITE_CONFIG` (default: `true`)
 
-See `/Users/robson/nanobot4j/.env.example`.
+See `.env.example`.
 
 ## API Reference
 
@@ -282,7 +284,7 @@ Outbound (server -> client):
 Start dashboard:
 
 ```bash
-cd /Users/robson/nanobot4j/cognis-dashboard
+cd /path/to/cognis/cognis-dashboard
 npm install
 npm run dev
 ```
@@ -330,7 +332,7 @@ Under workspace (`/home/cognis/.cognis/workspace` in Docker by default):
 ## Testing
 
 ```bash
-cd /Users/robson/nanobot4j
+cd /path/to/cognis
 mvn test
 ```
 
@@ -343,7 +345,7 @@ mvn test -pl cognis-core
 Dashboard checks:
 
 ```bash
-cd /Users/robson/nanobot4j/cognis-dashboard
+cd /path/to/cognis/cognis-dashboard
 npm run typecheck
 npm run build
 ```
