@@ -112,7 +112,7 @@ OPENROUTER_API_KEY=...
 # or ANTHROPIC_API_KEY=...
 ```
 
-3. Start Cognis gateway + MCP server:
+3. Start Cognis gateway + MCP server + dashboard:
 
 ```bash
 docker compose up --build
@@ -123,6 +123,7 @@ Gateway default URL:
 - HTTP: `http://127.0.0.1:8787`
 - WebSocket: `ws://127.0.0.1:8787/ws?client_id=<your-client-id>`
 - MCP tools endpoint: `http://127.0.0.1:8791/mcp/tools`
+- Operations dashboard: `http://127.0.0.1:4173`
 
 Persistent data:
 
@@ -135,7 +136,13 @@ Persistent data:
 docker compose up -d --build
 
 # Tail logs
-docker compose logs -f cognis cognis-mcp-server
+docker compose logs -f cognis cognis-mcp-server cognis-dashboard
+
+# Tail only SMS/MCP flow
+docker compose logs -f cognis-mcp-server | rg "twilio|/mcp/call|ERROR|WARN"
+
+# Tail tool + task execution path
+docker compose logs -f cognis | rg "task_|tool_|ERROR|WARN"
 
 # Stop
 docker compose down
@@ -143,6 +150,12 @@ docker compose down
 # Run one-off CLI prompt in container
 docker compose run --rm cognis agent "hello from docker"
 ```
+
+Dashboard audit quick filter:
+
+1. Open `http://127.0.0.1:4173`.
+2. In Audit Trail, set `Scope` to `Tool events only`.
+3. Optionally set `Type` to `tool_succeeded` and search `twilio.send_sms`.
 
 ## In Action: Cognis + ClawMobile
 

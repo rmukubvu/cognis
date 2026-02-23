@@ -32,6 +32,7 @@ type AuditEvent = {
 const BASE_URL = import.meta.env.VITE_COGNIS_BASE_URL ?? 'http://127.0.0.1:8787';
 const EVENT_LIMIT = 300;
 type TimeFilter = '24h' | '7d' | '30d' | 'all';
+type EventScope = 'all' | 'tool' | 'task';
 
 export function App() {
   const [summary, setSummary] = React.useState<DashboardSummary | null>(null);
@@ -40,6 +41,7 @@ export function App() {
   const [error, setError] = React.useState('');
   const [lastRefresh, setLastRefresh] = React.useState<Date | null>(null);
   const [typeFilter, setTypeFilter] = React.useState('all');
+  const [scopeFilter, setScopeFilter] = React.useState<EventScope>('all');
   const [timeFilter, setTimeFilter] = React.useState<TimeFilter>('7d');
   const [searchFilter, setSearchFilter] = React.useState('');
 
@@ -82,6 +84,8 @@ export function App() {
             ? 30 * 24 * 60 * 60 * 1000
             : null;
     return events.filter((event) => {
+      if (scopeFilter === 'tool' && !event.type.startsWith('tool_')) return false;
+      if (scopeFilter === 'task' && !event.type.startsWith('task_')) return false;
       if (typeFilter !== 'all' && event.type !== typeFilter) return false;
       if (timeWindow !== null) {
         const eventTs = new Date(event.timestamp).getTime();
@@ -94,7 +98,7 @@ export function App() {
         JSON.stringify(event.attributes).toLowerCase().includes(term)
       );
     });
-  }, [events, searchFilter, timeFilter, typeFilter]);
+  }, [events, scopeFilter, searchFilter, timeFilter, typeFilter]);
 
   const exportCsv = React.useCallback(() => {
     const rows = filteredEvents.map((e) => ({
@@ -195,6 +199,11 @@ export function App() {
             <CardTitle>Audit trail</CardTitle>
             <CardDescription>Filter by type, timeframe, or payload text. Export for compliance review.</CardDescription>
             <div className="filters">
+              <Select value={scopeFilter} onChange={(e) => setScopeFilter(e.target.value as EventScope)}>
+                <option value="all">All scopes</option>
+                <option value="tool">Tool events only</option>
+                <option value="task">Task events only</option>
+              </Select>
               <Select value={typeFilter} onChange={(e) => setTypeFilter(e.target.value)}>
                 {eventTypes.map((type) => (
                   <option key={type} value={type}>{type === 'all' ? 'All event types' : type}</option>
