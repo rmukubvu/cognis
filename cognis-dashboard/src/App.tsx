@@ -24,7 +24,7 @@ type DashboardSummary = {
 
 type AuditEvent = {
   id: string;
-  timestamp: string;
+  timestamp: string | number;
   type: string;
   attributes: Record<string, unknown>;
 };
@@ -88,7 +88,7 @@ export function App() {
       if (scopeFilter === 'task' && !event.type.startsWith('task_')) return false;
       if (typeFilter !== 'all' && event.type !== typeFilter) return false;
       if (timeWindow !== null) {
-        const eventTs = new Date(event.timestamp).getTime();
+        const eventTs = parseTimestampMs(event.timestamp);
         if (Number.isNaN(eventTs) || now - eventTs > timeWindow) return false;
       }
       if (!searchFilter) return true;
@@ -238,7 +238,7 @@ export function App() {
                 <TableBody>
                   {filteredEvents.map((event) => (
                     <TableRow key={event.id}>
-                      <TableCell>{new Date(event.timestamp).toLocaleString()}</TableCell>
+                      <TableCell>{new Date(parseTimestampMs(event.timestamp)).toLocaleString()}</TableCell>
                       <TableCell><EventBadge type={event.type} /></TableCell>
                       <TableCell><code className="event-json">{JSON.stringify(event.attributes)}</code></TableCell>
                     </TableRow>
@@ -308,4 +308,19 @@ function toCsvCell(raw: unknown): string {
   const value = String(raw ?? '');
   const escaped = value.replaceAll('"', '""');
   return `"${escaped}"`;
+}
+
+function parseTimestampMs(raw: string | number): number {
+  if (typeof raw === 'number') {
+    return raw < 1_000_000_000_000 ? raw * 1000 : raw;
+  }
+  const text = String(raw ?? '').trim();
+  if (!text) {
+    return Number.NaN;
+  }
+  const asNumber = Number(text);
+  if (!Number.isNaN(asNumber)) {
+    return asNumber < 1_000_000_000_000 ? asNumber * 1000 : asNumber;
+  }
+  return new Date(text).getTime();
 }

@@ -38,6 +38,7 @@ public final class AgentOrchestrator {
     private static final Pattern PHONE_PATTERN = Pattern.compile("^\\+?[0-9()\\-\\s]{7,}$");
     private static final String EXTERNAL_ACTION_GUARDRAIL = "I could not verify execution of that external action yet. "
         + "I need to run the relevant tool first and confirm its result before I can say it was sent/completed.";
+    private static final Pattern NAME_AFTER_TO_PATTERN = Pattern.compile("\\bto\\s+([a-zA-Z][a-zA-Z\\-']{1,40})\\b");
     private static final String IDENTITY_POLICY = """
         ## Identity And Branding Policy
         - You are Cognis.
@@ -114,6 +115,9 @@ public final class AgentOrchestrator {
                         continue;
                     }
                     content = EXTERNAL_ACTION_GUARDRAIL;
+                }
+                if (runContext.smsSent()) {
+                    content = buildSmsConfirmation(userPrompt, runContext.smsRecipient());
                 }
                 transcript.add(ChatMessage.assistant(content));
                 AgentResult result = new AgentResult(content, List.copyOf(transcript), usage);
@@ -298,6 +302,10 @@ public final class AgentOrchestrator {
         RunContext runContext,
         String error
     ) {
+        if ("tool_succeeded".equals(type)) {
+            markSmsSuccess(toolName, input, output, runContext);
+        }
+
         ObservabilityService observability = service("observabilityService", ObservabilityService.class);
         if (observability == null) {
             return;
@@ -393,9 +401,72 @@ public final class AgentOrchestrator {
         return text == null ? "" : text.toLowerCase().trim();
     }
 
+    private void markSmsSuccess(String toolName, Map<String, Object> input, String output, RunContext runContext) {
+        if (!"mcp".equals(toolName)) {
+            return;
+        }
+        String action = input == null ? "" : String.valueOf(input.getOrDefault("action", "")).trim();
+        String calledTool = input == null ? "" : String.valueOf(input.getOrDefault("tool", "")).trim();
+        if (!"call_tool".equals(action) || !"twilio.send_sms".equals(calledTool)) {
+            return;
+        }
+        try {
+            Map<String, Object> parsed = JSON.readValue(output, MAP_TYPE);
+            boolean ok = Boolean.TRUE.equals(parsed.get("ok"));
+            Object data = parsed.get("data");
+            if (!ok || !(data instanceof Map<?, ?> dataMap)) {
+                return;
+            }
+            Object statusValue = dataMap.containsKey("status") ? dataMap.get("status") : "";
+            String status = String.valueOf(statusValue).trim().toLowerCase();
+            if (status.isBlank()) {
+                return;
+            }
+            String recipient = extractSmsRecipient(input);
+            runContext.markSmsSent(recipient);
+        } catch (Exception ignored) {
+            // Ignore non-JSON output.
+        }
+    }
+
+    private String extractSmsRecipient(Map<String, Object> input) {
+        if (input == null) {
+            return "";
+        }
+        Object arguments = input.get("arguments");
+        if (!(arguments instanceof Map<?, ?> argMap)) {
+            return "";
+        }
+        Object body = argMap.get("body");
+        if (!(body instanceof Map<?, ?> bodyMap)) {
+            return "";
+        }
+        Object toValue = bodyMap.containsKey("To") ? bodyMap.get("To") : "";
+        String to = String.valueOf(toValue).trim();
+        return maskPhone(to);
+    }
+
+    private String buildSmsConfirmation(String userPrompt, String fallbackRecipient) {
+        String prompt = userPrompt == null ? "" : userPrompt.trim();
+        var matcher = NAME_AFTER_TO_PATTERN.matcher(prompt);
+        if (matcher.find()) {
+            String token = matcher.group(1);
+            if (!token.isBlank()) {
+                String name = Character.toUpperCase(token.charAt(0)) + token.substring(1);
+                return "SMS sent to " + name + ".";
+            }
+        }
+        if (fallbackRecipient != null && !fallbackRecipient.isBlank()) {
+            return "SMS sent to " + fallbackRecipient + ".";
+        }
+        return "SMS sent.";
+    }
+
     private static final class RunContext {
         private final String clientId;
         private final String taskId;
+        private boolean smsSent;
+        private String smsRecipient = "";
 
         private RunContext(Map<String, Object> metadata) {
             this.clientId = string(metadata.get("client_id"));
@@ -409,6 +480,19 @@ public final class AgentOrchestrator {
             if (!taskId.isBlank()) {
                 target.put("task_id", taskId);
             }
+        }
+
+        private boolean smsSent() {
+            return smsSent;
+        }
+
+        private String smsRecipient() {
+            return smsRecipient;
+        }
+
+        private void markSmsSent(String recipient) {
+            this.smsSent = true;
+            this.smsRecipient = recipient == null ? "" : recipient.trim();
         }
 
         private static String string(Object value) {

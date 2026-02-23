@@ -34,7 +34,7 @@ class AgentOrchestratorTest {
     @Test
     void shouldExecuteToolAndReturnFinalAnswer() {
         ProviderRegistry providers = new ProviderRegistry();
-        providers.register(new ToolThenAnswerProvider());
+        providers.register(new EchoToolThenAnswerProvider());
 
         ToolRegistry tools = new ToolRegistry();
         tools.register(new EchoTool());
@@ -101,7 +101,7 @@ class AgentOrchestratorTest {
     @Test
     void shouldRecordToolEventsWithMcpMetadata() throws Exception {
         ProviderRegistry providers = new ProviderRegistry();
-        providers.register(new ToolThenAnswerProvider());
+        providers.register(new McpToolThenAnswerProvider());
         ToolRegistry tools = new ToolRegistry();
         tools.register(new McpEchoTool());
         InMemoryAuditStore auditStore = new InMemoryAuditStore();
@@ -134,6 +134,21 @@ class AgentOrchestratorTest {
     }
 
     @Test
+    void shouldReturnConciseSmsConfirmationAfterSuccessfulTwilioCall() {
+        ProviderRegistry providers = new ProviderRegistry();
+        providers.register(new McpToolThenAnswerProvider());
+        ToolRegistry tools = new ToolRegistry();
+        tools.register(new McpEchoTool());
+
+        AgentOrchestrator orchestrator = new AgentOrchestrator(new ProviderRouter(providers), tools);
+
+        AgentSettings settings = new AgentSettings("system", "openrouter", "test-model", 4);
+        AgentResult result = orchestrator.run("Send a text to alice to buy oranges", settings, Path.of("."));
+
+        assertThat(result.content()).isEqualTo("SMS sent to Alice.");
+    }
+
+    @Test
     void shouldBlockUnverifiedExternalActionClaims() {
         ProviderRegistry providers = new ProviderRegistry();
         providers.register(new HallucinatedActionProvider());
@@ -163,7 +178,29 @@ class AgentOrchestratorTest {
         }
     }
 
-    private static final class ToolThenAnswerProvider implements LlmProvider {
+    private static final class EchoToolThenAnswerProvider implements LlmProvider {
+        private int calls;
+
+        @Override
+        public String name() {
+            return "openrouter";
+        }
+
+        @Override
+        public LlmResponse chat(String model, List<ChatMessage> messages, List<Map<String, Object>> tools) {
+            calls++;
+            if (calls == 1) {
+                return new LlmResponse(
+                    "",
+                    List.of(new ToolCall("1", "echo", Map.of("text", "tool-output"))),
+                    Map.of("total_tokens", 12)
+                );
+            }
+            return new LlmResponse("final answer", List.of(), Map.of("total_tokens", 20));
+        }
+    }
+
+    private static final class McpToolThenAnswerProvider implements LlmProvider {
         private int calls;
 
         @Override
@@ -185,7 +222,7 @@ class AgentOrchestratorTest {
                     Map.of("total_tokens", 12)
                 );
             }
-            return new LlmResponse("final answer", List.of(), Map.of("total_tokens", 20));
+            return new LlmResponse("Verbose status with ids and phone numbers", List.of(), Map.of("total_tokens", 20));
         }
     }
 

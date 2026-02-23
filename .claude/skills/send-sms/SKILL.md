@@ -70,8 +70,8 @@ Rules:
 
 On success:
 
-1. Confirm recipient and short message preview.
-2. Include provider response identifiers if available (`sid`, `status`).
+1. Return a concise confirmation only (for example `SMS sent to Alice.`).
+2. Do not include SID, raw phone, payload table, or provider metadata unless user explicitly asks for technical details.
 
 On failure:
 
