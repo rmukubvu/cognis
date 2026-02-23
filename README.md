@@ -51,6 +51,7 @@ picoclaw-app (mobile)
 - Migration plan: `/Users/robson/nanobot4j/docs/MIGRATION_PLAN.md`
 - Operations runbook: `/Users/robson/nanobot4j/docs/OPERATIONS.md`
 - Contributing guide: `/Users/robson/nanobot4j/CONTRIBUTING.md`
+- Mobile test client (React Native): `https://github.com/rmukubvu/clawmobile`
 
 ## Core Features
 
@@ -162,7 +163,7 @@ WhatsApp integration is not required to run or test Cognis.
 
 Primary path:
 
-- Use the React Native app as the client over WebSocket to `ws://127.0.0.1:8787/ws?client_id=<id>`.
+- Use the React Native app (`https://github.com/rmukubvu/clawmobile`) as the client over WebSocket to `ws://127.0.0.1:8787/ws?client_id=<id>`.
 
 Quick local validation paths:
 
