@@ -146,27 +146,19 @@ docker compose run --rm cognis agent "hello from docker"
 
 End-to-end flow using the ClawMobile app connected to a local Cognis gateway.
 
-1. Chat home screen before agent setup.
-2. Add a new Cognis agent (`ws://localhost:8787/ws` + client id).
-3. Agent shows connected in the Agents tab.
-4. Chat list shows the Cognis conversation entry.
-5. Open conversation with Cognis online.
-6. Send a reminder request.
-7. Receive Cognis confirmation response.
-8. Receive scheduled reminder notification.
-9. Task appears in the Tasks tab.
-10. Gateway build/start in Docker.
+1. Open chat list and verify Cognis appears.
+2. Edit/connect the Cognis agent (`ws://localhost:8787/ws` + client id).
+3. Open a Cognis conversation with starter prompts.
+4. Ask for a reminder and receive both ack + follow-up notification.
+5. Review the cleaner settings menu layout.
+6. Open Spending Controls from Settings and adjust limits.
 
-![Chat home before setup](docs/images/cognis-clawmobile-01-chat-empty.png)
-![Add Cognis agent](docs/images/cognis-clawmobile-02-agent-form.png)
-![Agent connected](docs/images/cognis-clawmobile-03-agent-connected.png)
-![Chat list with Cognis](docs/images/cognis-clawmobile-04-chat-list.png)
-![Conversation online](docs/images/cognis-clawmobile-05-chat-online.png)
-![Reminder request sent](docs/images/cognis-clawmobile-06-reminder-request.png)
-![Reminder acknowledgement](docs/images/cognis-clawmobile-07-reminder-ack.png)
-![Reminder notification delivered](docs/images/cognis-clawmobile-08-reminder-delivered.png)
-![Tasks and notifications](docs/images/cognis-clawmobile-09-tasks.png)
-![Docker build and run](docs/images/cognis-clawmobile-10-docker-build.png)
+![Chat list with Cognis](docs/images/cognis-clawmobile-01-chat-list.png)
+![Agents edit/connection](docs/images/cognis-clawmobile-02-agents-edit.png)
+![Conversation starter](docs/images/cognis-clawmobile-03-chat-starter.png)
+![Reminder flow (ack + notification)](docs/images/cognis-clawmobile-04-reminder-flow.png)
+![Settings overview](docs/images/cognis-clawmobile-05-settings-overview.png)
+![Spending controls screen](docs/images/cognis-clawmobile-06-spending-controls.png)
 
 ## Quick Start (Local Maven)
 
