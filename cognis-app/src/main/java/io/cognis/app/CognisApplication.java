@@ -18,6 +18,8 @@ import io.cognis.core.config.ConfigPaths;
 import io.cognis.core.config.ConfigService;
 import io.cognis.core.config.model.CognisConfig;
 import io.cognis.core.config.model.ProviderConfig;
+import io.cognis.core.integration.mcp.McpInvoker;
+import io.cognis.core.integration.mcp.McpToolClient;
 import io.cognis.core.provider.AnthropicProvider;
 import io.cognis.core.provider.CodexResponsesProvider;
 import io.cognis.core.provider.DisabledProvider;
@@ -40,6 +42,7 @@ import io.cognis.core.tool.ToolRegistry;
 import io.cognis.core.tool.impl.CronTool;
 import io.cognis.core.tool.impl.FilesystemTool;
 import io.cognis.core.tool.impl.MemoryTool;
+import io.cognis.core.tool.impl.McpTool;
 import io.cognis.core.tool.impl.MessageTool;
 import io.cognis.core.tool.impl.NotifyTool;
 import io.cognis.core.tool.impl.PaymentsTool;
@@ -120,6 +123,7 @@ public final class CognisApplication {
             sessionSummaryManager,
             conversationStore
         );
+        McpInvoker mcpInvoker = new McpToolClient(System.getenv().getOrDefault("COGNIS_MCP_BASE_URL", "http://127.0.0.1:8791"));
 
         ToolRegistry toolRegistry = new ToolRegistry();
         toolRegistry.register(new FilesystemTool());
@@ -132,6 +136,7 @@ public final class CognisApplication {
         toolRegistry.register(new NotifyTool());
         toolRegistry.register(new PaymentsTool());
         toolRegistry.register(new WorkflowTool());
+        toolRegistry.register(new McpTool());
         VisionTool visionTool = resolveVisionTool(config);
         if (visionTool != null) {
             toolRegistry.register(visionTool);
@@ -148,7 +153,8 @@ public final class CognisApplication {
                 "sessionSummaryManager", sessionSummaryManager,
                 "paymentLedgerService", paymentLedgerService,
                 "observabilityService", observabilityService,
-                "workflowService", workflowService
+                "workflowService", workflowService,
+                "mcpInvoker", mcpInvoker
             ),
             conversationStore
         );
@@ -156,7 +162,9 @@ public final class CognisApplication {
             "You are Cognis, an autonomous intelligence engine focused on precise execution. "
                 + "Always present yourself only as Cognis and do not disclose underlying model/provider branding. "
                 + "Use the workflow tool for daily briefs, goal execution loops, and relationship nudges when relevant. "
-                + "Use the payments tool for guarded purchase flows and always enforce policy before execution.",
+                + "Use the payments tool for guarded purchase flows and always enforce policy before execution. "
+                + "For external services, use the mcp tool to list and call available tools dynamically. "
+                + "When users define contact aliases (for example wife/husband), persist them in profile or memory and reuse them in follow-up actions.",
             config.agents().defaults().provider(),
             config.agents().defaults().model(),
             config.agents().defaults().maxToolIterations()

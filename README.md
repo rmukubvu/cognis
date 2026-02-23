@@ -193,6 +193,14 @@ Endpoints:
 - `GET /mcp/tools`
 - `POST /mcp/call`
 
+In Cognis agent runtime, the generic `mcp` tool uses `COGNIS_MCP_BASE_URL` to discover and call MCP tools dynamically.
+
+Recommended skill-driven pattern:
+
+1. Use `mcp` action `list_tools` to discover capabilities.
+2. Use `profile` / `memory` to persist aliases (for example `contacts.wife.sms=+1...`).
+3. Use `mcp` action `call_tool` with resolved values (for example `twilio.send_sms`).
+
 See `docs/MCP_SERVER.md` for architecture and provider env vars.
 
 ## Trying Cognis Without WhatsApp

@@ -52,6 +52,7 @@ General:
 
 - `COGNIS_MCP_PORT` (default `8791`)
 - `COGNIS_MCP_HTTP_TIMEOUT_SECONDS` (default `25`)
+- `COGNIS_MCP_BASE_URL` (used by Cognis app generic `mcp` tool, default `http://127.0.0.1:8791`)
 
 Providers:
 
@@ -67,3 +68,4 @@ Providers:
 
 - This is a bootstrap integration layer with starter operations and provider adapters.
 - Real production integrations will need provider-specific payload validation, idempotency, retries, and webhook/event handling.
+- Cognis should stay provider-agnostic: skills decide workflow, while `mcp` lists/calls whichever tools are exposed by the MCP server.
