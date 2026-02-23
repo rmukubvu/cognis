@@ -153,9 +153,9 @@ End-to-end flow using the ClawMobile app connected to a local Cognis gateway.
 5. Review the cleaner settings menu layout.
 6. Open Spending Controls from Settings and adjust limits.
 
-![Chat list with Cognis](docs/images/cognis-clawmobile-01-chat-list.png)
-![Agents edit/connection](docs/images/cognis-clawmobile-02-agents-edit.png)
 ![Conversation starter](docs/images/cognis-clawmobile-03-chat-starter.png)
+![Agents edit/connection](docs/images/cognis-clawmobile-02-agents-edit.png)
+![Chat list with Cognis](docs/images/cognis-clawmobile-01-chat-list.png)
 ![Reminder flow (ack + notification)](docs/images/cognis-clawmobile-04-reminder-flow.png)
 ![Settings overview](docs/images/cognis-clawmobile-05-settings-overview.png)
 ![Spending controls screen](docs/images/cognis-clawmobile-06-spending-controls.png)
