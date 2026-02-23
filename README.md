@@ -112,7 +112,7 @@ OPENROUTER_API_KEY=...
 # or ANTHROPIC_API_KEY=...
 ```
 
-3. Start Cognis gateway:
+3. Start Cognis gateway + MCP server:
 
 ```bash
 docker compose up --build
@@ -122,6 +122,7 @@ Gateway default URL:
 
 - HTTP: `http://127.0.0.1:8787`
 - WebSocket: `ws://127.0.0.1:8787/ws?client_id=<your-client-id>`
+- MCP tools endpoint: `http://127.0.0.1:8791/mcp/tools`
 
 Persistent data:
 
@@ -134,7 +135,7 @@ Persistent data:
 docker compose up -d --build
 
 # Tail logs
-docker compose logs -f cognis
+docker compose logs -f cognis cognis-mcp-server
 
 # Stop
 docker compose down
@@ -192,6 +193,8 @@ Endpoints:
 - `GET /healthz`
 - `GET /mcp/tools`
 - `POST /mcp/call`
+
+Docker Compose starts this server automatically as `cognis-mcp-server` and wires Cognis to it.
 
 In Cognis agent runtime, the generic `mcp` tool uses `COGNIS_MCP_BASE_URL` to discover and call MCP tools dynamically.
 

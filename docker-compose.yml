@@ -1,14 +1,30 @@
 services:
-  cognis:
+  cognis-mcp-server:
     build:
       context: .
       dockerfile: Dockerfile
-    container_name: cognis
+      target: mcp-runtime
     restart: unless-stopped
     env_file:
       - .env
     environment:
+      COGNIS_MCP_PORT: ${COGNIS_MCP_PORT:-8791}
+    ports:
+      - "${COGNIS_MCP_PORT:-8791}:${COGNIS_MCP_PORT:-8791}"
+
+  cognis:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: app-runtime
+    restart: unless-stopped
+    depends_on:
+      - cognis-mcp-server
+    env_file:
+      - .env
+    environment:
       COGNIS_GATEWAY_PORT: ${COGNIS_GATEWAY_PORT:-8787}
+      COGNIS_MCP_BASE_URL: http://cognis-mcp-server:${COGNIS_MCP_PORT:-8791}
     ports:
       - "${COGNIS_GATEWAY_PORT:-8787}:${COGNIS_GATEWAY_PORT:-8787}"
     volumes:
