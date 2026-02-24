@@ -106,7 +106,14 @@ cp .env.example .env
 
 If `.env.example` does not show in Finder, enable hidden files with `Cmd+Shift+.` or run `ls -la`.
 
-2. Set at least one provider credential in `.env`:
+2. Optional helper: open the local env setup page to generate your `.env` values.
+
+- File location: `docs/env-setup.html`
+- Open it directly in your browser (double-click in Finder or drag into a browser tab).
+
+![Cognis env setup helper](docs/images/cognis_env_setup.png)
+
+3. Set at least one provider credential in `.env`:
 
 ```bash
 OPENROUTER_API_KEY=...
@@ -124,7 +131,7 @@ OPENROUTER_API_KEY=...
 # BEDROCK_OPENAI_API_BASE=https://bedrock-runtime.us-east-1.amazonaws.com/openai/v1
 ```
 
-3. Start Cognis gateway + MCP server + dashboard:
+4. Start Cognis gateway + MCP server + dashboard:
 
 ```bash
 docker compose up --build
