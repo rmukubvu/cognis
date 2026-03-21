@@ -84,12 +84,33 @@ public final class AgentOrchestrator {
     }
 
     public AgentResult run(String userPrompt, AgentSettings settings, Path workspace) {
-        return run(userPrompt, settings, workspace, Map.of());
+        return run(userPrompt, settings, workspace, List.of(), Map.of());
     }
 
     public AgentResult run(String userPrompt, AgentSettings settings, Path workspace, Map<String, Object> runMetadata) {
+        return run(userPrompt, settings, workspace, List.of(), runMetadata);
+    }
+
+    /**
+     * Run the agent with prior conversation turns pre-loaded into the transcript.
+     * Used for cross-channel identity: field officers resume their conversation regardless
+     * of whether they switch from SMS to WhatsApp or back.
+     *
+     * @param priorTurns interleaved user/assistant {@link ChatMessage}s from previous sessions,
+     *                   oldest first. Injected after the system prompt and before the new user message.
+     */
+    public AgentResult run(
+        String userPrompt,
+        AgentSettings settings,
+        Path workspace,
+        List<ChatMessage> priorTurns,
+        Map<String, Object> runMetadata
+    ) {
         List<ChatMessage> transcript = new ArrayList<>();
         transcript.add(ChatMessage.system(buildSystemPrompt(settings.systemPrompt(), userPrompt)));
+        if (priorTurns != null && !priorTurns.isEmpty()) {
+            transcript.addAll(priorTurns);
+        }
         transcript.add(ChatMessage.user(userPrompt));
         RunContext runContext = new RunContext(runMetadata);
 

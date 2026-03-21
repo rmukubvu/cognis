@@ -30,6 +30,7 @@ import io.cognis.core.provider.OpenAiCompatProvider;
 import io.cognis.core.provider.ProviderRegistry;
 import io.cognis.core.provider.ProviderRouter;
 import io.cognis.core.heartbeat.HeartbeatScheduler;
+import io.cognis.core.contact.FileContactStore;
 import io.cognis.core.memory.FileMemoryStore;
 import io.cognis.core.memory.OpenAiCompatEmbeddingProvider;
 import io.cognis.core.sandbox.VerticalPolicy;
@@ -96,6 +97,11 @@ public final class CognisApplication {
             config.providers().githubCopilot(),
             "https://api.githubcopilot.com"
         );
+        LlmProvider ollama = buildOpenAiCompatProvider(
+            "ollama",
+            config.providers().ollama(),
+            "http://localhost:11434/v1"
+        );
 
         ProviderRegistry providerRegistry = new ProviderRegistry();
         providerRegistry.register(new FallbackLlmProvider("openrouter", List.of(openrouter, openai, anthropic, bedrockOpenai, bedrock)));
@@ -105,6 +111,7 @@ public final class CognisApplication {
         providerRegistry.register(new FallbackLlmProvider("bedrock_openai", List.of(bedrockOpenai, bedrock, openai, openrouter, anthropic)));
         providerRegistry.register(new FallbackLlmProvider("openai_codex", List.of(codex, openai, openrouter, anthropic, bedrockOpenai, bedrock)));
         providerRegistry.register(new FallbackLlmProvider("github_copilot", List.of(copilot, openai, openrouter, anthropic, bedrockOpenai, bedrock)));
+        providerRegistry.register(new FallbackLlmProvider("ollama", List.of(ollama, openrouter, openai, anthropic)));
 
         Path workspacePath = ConfigPaths.resolveWorkspace(config.agents().defaults().workspace());
         CronService cronService = new CronService(
@@ -418,7 +425,13 @@ public final class CognisApplication {
             paymentLedgerService,
             observabilityService
         )) {
-            ToolContext verticalContext = new ToolContext(workspace);
+            FileContactStore contactStore = new FileContactStore(workspace.resolve(".cognis/contacts.json"));
+            ToolContext verticalContext = new ToolContext(workspace, Map.of(
+                "agentOrchestrator", orchestrator,
+                "agentSettings", agentSettings,
+                "messageBus", messageBus,
+                "contactStore", contactStore
+            ));
             HeartbeatScheduler heartbeatScheduler = new HeartbeatScheduler(verticalContext);
             ServiceLoader.load(CognisVertical.class).forEach(vertical -> {
                 try {

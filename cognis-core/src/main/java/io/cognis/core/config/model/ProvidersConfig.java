@@ -16,11 +16,14 @@ public record ProvidersConfig(
     @JsonProperty("bedrock")
     @JsonAlias({"bedrock"}) ProviderConfig bedrock,
     @JsonProperty("bedrock_openai")
-    @JsonAlias({"bedrock_openai", "bedrock-openai"}) ProviderConfig bedrockOpenai
+    @JsonAlias({"bedrock_openai", "bedrock-openai"}) ProviderConfig bedrockOpenai,
+    @JsonProperty("ollama")
+    @JsonAlias({"ollama"}) ProviderConfig ollama
 ) {
 
     public static ProvidersConfig defaults() {
         return new ProvidersConfig(
+            ProviderConfig.defaults(),
             ProviderConfig.defaults(),
             ProviderConfig.defaults(),
             ProviderConfig.defaults(),
