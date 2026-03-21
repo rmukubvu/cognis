@@ -5,7 +5,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import io.cognis.mcp.server.config.ProviderConfig;
 import io.cognis.mcp.server.http.ProviderHttpClient;
-import io.cognis.mcp.server.model.ToolCallResponse;
+import io.cognis.core.provider.ToolCallResponse;
 import java.io.IOException;
 import java.util.Map;
 import okhttp3.OkHttpClient;

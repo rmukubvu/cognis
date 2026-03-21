@@ -20,6 +20,11 @@
     </dependency>
     <dependency>
       <groupId>io.cognis</groupId>
+      <artifactId>cognis-sdk</artifactId>
+      <version>${project.version}</version>
+    </dependency>
+    <dependency>
+      <groupId>io.cognis</groupId>
       <artifactId>cognis-cli</artifactId>
       <version>${project.version}</version>
     </dependency>
@@ -27,6 +32,17 @@
       <groupId>ch.qos.logback</groupId>
       <artifactId>logback-classic</artifactId>
       <version>${logback.version}</version>
+    </dependency>
+    <dependency>
+      <groupId>org.junit.jupiter</groupId>
+      <artifactId>junit-jupiter</artifactId>
+      <scope>test</scope>
+    </dependency>
+    <dependency>
+      <groupId>org.assertj</groupId>
+      <artifactId>assertj-core</artifactId>
+      <version>${assertj.version}</version>
+      <scope>test</scope>
     </dependency>
   </dependencies>
 

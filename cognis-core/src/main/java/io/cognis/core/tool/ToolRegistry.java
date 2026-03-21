@@ -5,7 +5,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
 
-public final class ToolRegistry {
+public class ToolRegistry {
     private final Map<String, Tool> tools = new ConcurrentHashMap<>();
 
     public void register(Tool tool) {

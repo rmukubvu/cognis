@@ -29,7 +29,11 @@ import io.cognis.core.provider.LlmProvider;
 import io.cognis.core.provider.OpenAiCompatProvider;
 import io.cognis.core.provider.ProviderRegistry;
 import io.cognis.core.provider.ProviderRouter;
+import io.cognis.core.heartbeat.HeartbeatScheduler;
 import io.cognis.core.memory.FileMemoryStore;
+import io.cognis.core.memory.OpenAiCompatEmbeddingProvider;
+import io.cognis.core.sandbox.VerticalPolicy;
+import io.cognis.core.tool.PolicyEnforcedToolRegistry;
 import io.cognis.core.observability.FileAuditStore;
 import io.cognis.core.observability.ObservabilityService;
 import io.cognis.core.payment.FilePaymentStore;
@@ -39,8 +43,10 @@ import io.cognis.core.session.ConversationStore;
 import io.cognis.core.session.FileConversationStore;
 import io.cognis.core.session.FileSessionSummaryManager;
 import io.cognis.core.session.SqliteConversationStore;
+import io.cognis.core.tool.ToolContext;
 import io.cognis.core.tool.ToolRegistry;
 import io.cognis.core.tool.impl.CronTool;
+import io.cognis.sdk.CognisVertical;
 import io.cognis.core.tool.impl.FilesystemTool;
 import io.cognis.core.tool.impl.MemoryTool;
 import io.cognis.core.tool.impl.McpTool;
@@ -61,6 +67,7 @@ import java.time.Clock;
 import java.time.Duration;
 import java.util.List;
 import java.util.Map;
+import java.util.ServiceLoader;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.Executors;
 import picocli.CommandLine;
@@ -106,7 +113,7 @@ public final class CognisApplication {
         );
         setupDailyDigest(cronService);
         InMemoryMessageBus messageBus = new InMemoryMessageBus();
-        FileMemoryStore memoryStore = new FileMemoryStore(workspacePath.resolve("memory/memories.json"));
+        FileMemoryStore memoryStore = buildMemoryStore(config, workspacePath);
         FileProfileStore profileStore = new FileProfileStore(workspacePath.resolve("profile.json"));
         FileSessionSummaryManager sessionSummaryManager = new FileSessionSummaryManager(
             workspacePath.resolve("memory/session-summary.txt"),
@@ -191,7 +198,8 @@ public final class CognisApplication {
                 cronService,
                 workflowService,
                 paymentLedgerService,
-                observabilityService
+                observabilityService,
+                toolRegistry
             )
         );
 
@@ -387,7 +395,8 @@ public final class CognisApplication {
         CronService cronService,
         WorkflowService workflowService,
         PaymentLedgerService paymentLedgerService,
-        ObservabilityService observabilityService
+        ObservabilityService observabilityService,
+        ToolRegistry toolRegistry
     ) throws Exception {
         CognisConfig config = configService.load(configPath);
         Path workspace = workspaceOverride != null
@@ -409,7 +418,37 @@ public final class CognisApplication {
             paymentLedgerService,
             observabilityService
         )) {
-            Runtime.getRuntime().addShutdownHook(new Thread(shutdown::countDown));
+            ToolContext verticalContext = new ToolContext(workspace);
+            HeartbeatScheduler heartbeatScheduler = new HeartbeatScheduler(verticalContext);
+            ServiceLoader.load(CognisVertical.class).forEach(vertical -> {
+                try {
+                    vertical.initialize(verticalContext);
+
+                    // Policy-scoped registry: vertical can only see its declared tools
+                    PolicyEnforcedToolRegistry scopedRegistry =
+                        new PolicyEnforcedToolRegistry(toolRegistry, vertical.policy(), vertical.name());
+                    vertical.tools().forEach(scopedRegistry::register);
+
+                    vertical.routes().forEach(route ->
+                        server.registerRoute(route.method(), route.path(),
+                            VerticalAdapter.toUndertowHandler(route.handler()))
+                    );
+
+                    vertical.heartbeatJobs().forEach(heartbeatScheduler::register);
+
+                    if (!vertical.policy().isPermissive()) {
+                        System.out.println("Vertical '" + vertical.name()
+                            + "' sandboxed to tools: " + vertical.policy().allowedTools());
+                    }
+                } catch (Exception e) {
+                    throw new IllegalStateException("Failed to load vertical: " + vertical.name(), e);
+                }
+            });
+
+            Runtime.getRuntime().addShutdownHook(new Thread(() -> {
+                shutdown.countDown();
+                heartbeatScheduler.close();
+            }));
             server.start();
             scheduler.scheduleAtFixedRate(
                 () -> dispatchDueJobs(cronService, messageBus, workflowService),
@@ -476,6 +515,26 @@ public final class CognisApplication {
             return "relationship_nudge";
         }
         return "";
+    }
+
+    private static FileMemoryStore buildMemoryStore(CognisConfig config, Path workspacePath) {
+        Path memoriesPath = workspacePath.resolve("memory/memories.json");
+        // Upgrade to real LLM embeddings when OpenRouter is configured
+        if (config.providers().openrouter() != null && config.providers().openrouter().configured()) {
+            String base = config.providers().openrouter().apiBase() == null
+                || config.providers().openrouter().apiBase().isBlank()
+                ? "https://openrouter.ai/api/v1"
+                : config.providers().openrouter().apiBase();
+            return new FileMemoryStore(
+                memoriesPath,
+                new OpenAiCompatEmbeddingProvider(
+                    base + "/embeddings",
+                    config.providers().openrouter().apiKey(),
+                    "openai/text-embedding-3-small"
+                )
+            );
+        }
+        return new FileMemoryStore(memoriesPath);
     }
 
     private static Transcriber resolveTranscriber(CognisConfig config) {

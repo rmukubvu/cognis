@@ -18,13 +18,23 @@ import java.util.UUID;
 import java.util.stream.Collectors;
 
 public final class FileMemoryStore implements MemoryStore {
-    private static final int EMBEDDING_DIM = 256;
 
     private final Path path;
     private final ObjectMapper mapper;
+    private final EmbeddingProvider embeddingProvider;
 
+    /** Uses the built-in {@link HashEmbeddingProvider} — no external calls. */
     public FileMemoryStore(Path path) {
+        this(path, new HashEmbeddingProvider());
+    }
+
+    /**
+     * @param path              JSON file where memories are persisted
+     * @param embeddingProvider embedding strategy for storing and querying memories
+     */
+    public FileMemoryStore(Path path, EmbeddingProvider embeddingProvider) {
         this.path = path;
+        this.embeddingProvider = embeddingProvider;
         this.mapper = new ObjectMapper();
         this.mapper.registerModule(new JavaTimeModule());
     }
@@ -185,31 +195,14 @@ public final class FileMemoryStore implements MemoryStore {
     }
 
     private List<Double> embed(String content, List<String> tags) {
-        double[] vector = new double[EMBEDDING_DIM];
-        String joined = (content == null ? "" : content) + " " + String.join(" ", tags == null ? List.of() : tags);
-        for (String token : tokenize(joined)) {
-            int index = Math.floorMod(token.hashCode(), EMBEDDING_DIM);
-            vector[index] += 1.0;
+        String joined = (content == null ? "" : content)
+            + " " + String.join(" ", tags == null ? List.of() : tags);
+        try {
+            return embeddingProvider.embed(joined.trim());
+        } catch (Exception e) {
+            // EmbeddingProvider already falls back internally; this is a last-resort guard.
+            return List.of();
         }
-
-        double norm = 0.0;
-        for (double value : vector) {
-            norm += value * value;
-        }
-        norm = Math.sqrt(norm);
-
-        List<Double> embedding = new ArrayList<>(EMBEDDING_DIM);
-        if (norm == 0.0) {
-            for (int i = 0; i < EMBEDDING_DIM; i++) {
-                embedding.add(0.0);
-            }
-            return embedding;
-        }
-
-        for (double value : vector) {
-            embedding.add(value / norm);
-        }
-        return embedding;
     }
 
     private double cosine(List<Double> a, List<Double> b) {

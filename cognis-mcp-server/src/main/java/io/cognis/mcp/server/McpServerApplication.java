@@ -8,7 +8,7 @@ import io.cognis.mcp.server.http.ProviderHttpClient;
 import io.cognis.mcp.server.provider.AmazonProvider;
 import io.cognis.mcp.server.provider.DoordashProvider;
 import io.cognis.mcp.server.provider.InstacartProvider;
-import io.cognis.mcp.server.provider.IntegrationProvider;
+import io.cognis.core.provider.IntegrationProvider;
 import io.cognis.mcp.server.provider.LyftProvider;
 import io.cognis.mcp.server.provider.StripeProvider;
 import io.cognis.mcp.server.provider.TwilioProvider;

@@ -80,6 +80,7 @@ public final class GatewayServer implements AutoCloseable {
     private final ExecutorService executor;
     private final AtomicBoolean running;
     private final Map<String, WebSocketChannel> clients;
+    private final List<RouteEntry> registeredRoutes;
     private Undertow server;
     private int actualPort;
 
@@ -142,6 +143,7 @@ public final class GatewayServer implements AutoCloseable {
         this.executor = Executors.newVirtualThreadPerTaskExecutor();
         this.running = new AtomicBoolean(false);
         this.clients = new ConcurrentHashMap<>();
+        this.registeredRoutes = new ArrayList<>();
     }
 
     public void start() {
@@ -160,6 +162,24 @@ public final class GatewayServer implements AutoCloseable {
             .addExactPath("/audit/events", this::handleAuditEvents)
             .addPrefixPath("/files", this::handleFiles)
             .addExactPath("/ws", wsHandler);
+
+        for (RouteEntry entry : registeredRoutes) {
+            HttpHandler dispatched = exchange -> {
+                if (exchange.isInIoThread()) {
+                    exchange.dispatch(() -> {
+                        try {
+                            entry.handler().handleRequest(exchange);
+                        } catch (Exception e) {
+                            sendInternalError(exchange, e);
+                        }
+                    });
+                } else {
+                    entry.handler().handleRequest(exchange);
+                }
+            };
+            routes.addExactPath(entry.path(), dispatched);
+            LOG.info("Registered vertical route: {} {}", entry.method(), entry.path());
+        }
 
         server = Undertow.builder()
             .addHttpListener(requestedPort, host)
@@ -219,6 +239,34 @@ public final class GatewayServer implements AutoCloseable {
 
     public int port() {
         return actualPort;
+    }
+
+    /**
+     * Registers a custom HTTP route with the gateway server.
+     *
+     * <p>Must be called <em>before</em> {@link #start()}. The {@code method} parameter is used
+     * for logging only — method enforcement is the handler's responsibility, consistent with how
+     * all built-in handlers work.
+     *
+     * @param method  HTTP method this route is intended for (e.g. {@code "POST"}), used for logging
+     * @param path    absolute path starting with {@code "/"} (e.g. {@code "/webhook/sms"})
+     * @param handler Undertow {@link HttpHandler} that processes requests to this path
+     * @throws IllegalStateException     if called after {@link #start()}
+     * @throws IllegalArgumentException  if {@code path} does not start with {@code "/"}
+     */
+    public void registerRoute(String method, String path, HttpHandler handler) {
+        if (running.get()) {
+            throw new IllegalStateException(
+                "Routes must be registered before calling start(). Route not added: " + method + " " + path
+            );
+        }
+        Objects.requireNonNull(method, "method must not be null");
+        Objects.requireNonNull(path, "path must not be null");
+        Objects.requireNonNull(handler, "handler must not be null");
+        if (!path.startsWith("/")) {
+            throw new IllegalArgumentException("Route path must start with '/': " + path);
+        }
+        registeredRoutes.add(new RouteEntry(method.toUpperCase(), path, handler));
     }
 
     @Override
@@ -890,6 +938,9 @@ public final class GatewayServer implements AutoCloseable {
     }
 
     private record UploadPayload(byte[] bytes, String filename, String contentType) {
+    }
+
+    private record RouteEntry(String method, String path, HttpHandler handler) {
     }
 
 }

@@ -1,0 +1,46 @@
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+  <modelVersion>4.0.0</modelVersion>
+
+  <parent>
+    <groupId>io.cognis</groupId>
+    <artifactId>cognis-parent</artifactId>
+    <version>0.1.0-SNAPSHOT</version>
+  </parent>
+
+  <!--
+    ┌─────────────────────────────────────────────────────────────────────┐
+    │  STEP 1: Rename this artifact to match your vertical.               │
+    │  Convention: cognis-vertical-<your-domain>                          │
+    │  Example:    cognis-vertical-legal                                  │
+    └─────────────────────────────────────────────────────────────────────┘
+  -->
+  <artifactId>cognis-vertical-starter</artifactId>
+  <name>cognis-vertical-starter</name>
+  <description>Template for building a new Cognis vertical plugin. Copy, rename, implement.</description>
+
+  <dependencies>
+    <!--
+      cognis-sdk is the ONLY dependency you need.
+      Tool, ToolContext, IntegrationProvider come transitively through it.
+      Do NOT add cognis-core, cognis-app, or cognis-mcp-server here.
+    -->
+    <dependency>
+      <groupId>io.cognis</groupId>
+      <artifactId>cognis-sdk</artifactId>
+      <version>${project.version}</version>
+    </dependency>
+    <dependency>
+      <groupId>org.junit.jupiter</groupId>
+      <artifactId>junit-jupiter</artifactId>
+      <scope>test</scope>
+    </dependency>
+    <dependency>
+      <groupId>org.assertj</groupId>
+      <artifactId>assertj-core</artifactId>
+      <version>${assertj.version}</version>
+      <scope>test</scope>
+    </dependency>
+  </dependencies>
+</project>

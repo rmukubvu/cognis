@@ -1,7 +1,5 @@
-package io.cognis.mcp.server.provider;
+package io.cognis.core.provider;
 
-import io.cognis.mcp.server.model.ToolCallResponse;
-import io.cognis.mcp.server.model.ToolDefinition;
 import java.util.List;
 import java.util.Map;
 

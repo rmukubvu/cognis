@@ -2,7 +2,7 @@ package io.cognis.mcp.server;
 
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import io.cognis.mcp.server.model.ToolCallResponse;
+import io.cognis.core.provider.ToolCallResponse;
 import io.undertow.Undertow;
 import io.undertow.server.HttpHandler;
 import io.undertow.server.HttpServerExchange;

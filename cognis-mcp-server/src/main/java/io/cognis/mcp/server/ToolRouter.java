@@ -1,8 +1,8 @@
 package io.cognis.mcp.server;
 
-import io.cognis.mcp.server.model.ToolCallResponse;
-import io.cognis.mcp.server.model.ToolDefinition;
-import io.cognis.mcp.server.provider.IntegrationProvider;
+import io.cognis.core.provider.IntegrationProvider;
+import io.cognis.core.provider.ToolCallResponse;
+import io.cognis.core.provider.ToolDefinition;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.LinkedHashMap;
@@ -15,13 +15,17 @@ public final class ToolRouter {
     public ToolRouter(List<IntegrationProvider> providers) {
         this.providerByTool = new LinkedHashMap<>();
         for (IntegrationProvider provider : providers) {
-            for (ToolDefinition definition : provider.tools()) {
-                providerByTool.put(definition.name(), provider);
-            }
+            register(provider);
         }
     }
 
-    public List<ToolDefinition> listTools() {
+    public synchronized void register(IntegrationProvider provider) {
+        for (ToolDefinition definition : provider.tools()) {
+            providerByTool.put(definition.name(), provider);
+        }
+    }
+
+    public synchronized List<ToolDefinition> listTools() {
         List<ToolDefinition> all = new ArrayList<>();
         for (Map.Entry<String, IntegrationProvider> entry : providerByTool.entrySet()) {
             String toolName = entry.getKey();
@@ -32,7 +36,7 @@ public final class ToolRouter {
         return all;
     }
 
-    public ToolCallResponse callTool(String toolName, Map<String, Object> arguments) {
+    public synchronized ToolCallResponse callTool(String toolName, Map<String, Object> arguments) {
         IntegrationProvider provider = providerByTool.get(toolName);
         if (provider == null) {
             return ToolCallResponse.error("Unknown tool: " + toolName);

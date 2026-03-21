@@ -1,6 +1,7 @@
 package io.cognis.core.api;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -273,6 +274,44 @@ class GatewayServerTest {
             JsonNode statusNode = mapper.readTree(status.body());
             assertThat(statusNode.path("available_daily").asDouble()).isEqualTo(120.0);
             assertThat(statusNode.path("transactions").asInt()).isEqualTo(0);
+        }
+    }
+
+    @Test
+    void shouldServeCustomRegisteredRoute() throws Exception {
+        try (GatewayServer server = new GatewayServer(0, tempDir, audioPath -> "ignored")) {
+            server.registerRoute("POST", "/webhook/test", exchange -> {
+                exchange.startBlocking();
+                byte[] body = exchange.getInputStream().readAllBytes();
+                String received = new String(body, java.nio.charset.StandardCharsets.UTF_8);
+                byte[] response = ("{\"echo\":\"" + received + "\"}").getBytes(java.nio.charset.StandardCharsets.UTF_8);
+                exchange.setStatusCode(200);
+                exchange.getResponseHeaders().put(io.undertow.util.Headers.CONTENT_TYPE, "application/json");
+                exchange.getResponseHeaders().put(io.undertow.util.Headers.CONTENT_LENGTH, String.valueOf(response.length));
+                exchange.getResponseSender().send(java.nio.ByteBuffer.wrap(response));
+            });
+            server.start();
+
+            HttpClient client = HttpClient.newHttpClient();
+            HttpRequest request = HttpRequest.newBuilder(
+                    URI.create("http://127.0.0.1:" + server.port() + "/webhook/test"))
+                .header("Content-Type", "application/json")
+                .POST(HttpRequest.BodyPublishers.ofString("ping"))
+                .build();
+
+            HttpResponse<String> response = client.send(request, HttpResponse.BodyHandlers.ofString());
+            assertThat(response.statusCode()).isEqualTo(200);
+            assertThat(response.body()).contains("\"echo\":\"ping\"");
+        }
+    }
+
+    @Test
+    void shouldRejectRouteRegistrationAfterStart() throws Exception {
+        try (GatewayServer server = new GatewayServer(0, tempDir, audioPath -> "ignored")) {
+            server.start();
+            assertThatThrownBy(() -> server.registerRoute("POST", "/late", exchange -> {}))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("before calling start");
         }
     }
 

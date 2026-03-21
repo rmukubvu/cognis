@@ -1,4 +1,4 @@
-package io.cognis.mcp.server.model;
+package io.cognis.core.provider;
 
 import java.util.Map;
 

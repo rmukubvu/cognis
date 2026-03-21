@@ -1,9 +1,10 @@
 package io.cognis.mcp.server.provider;
 
+import io.cognis.core.provider.IntegrationProvider;
+import io.cognis.core.provider.ToolCallResponse;
+import io.cognis.core.provider.ToolDefinition;
 import io.cognis.mcp.server.config.ProviderConfig;
 import io.cognis.mcp.server.http.ProviderHttpClient;
-import io.cognis.mcp.server.model.ToolCallResponse;
-import io.cognis.mcp.server.model.ToolDefinition;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;

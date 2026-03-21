@@ -13,9 +13,12 @@
 
   <modules>
     <module>cognis-core</module>
+    <module>cognis-sdk</module>
     <module>cognis-cli</module>
     <module>cognis-app</module>
     <module>cognis-mcp-server</module>
+    <module>cognis-vertical-humanitarian</module>
+    <module>cognis-vertical-starter</module>
   </modules>
 
   <properties>

@@ -14,6 +14,11 @@
 
   <dependencies>
     <dependency>
+      <groupId>io.cognis</groupId>
+      <artifactId>cognis-core</artifactId>
+      <version>${project.version}</version>
+    </dependency>
+    <dependency>
       <groupId>org.slf4j</groupId>
       <artifactId>slf4j-api</artifactId>
     </dependency>
