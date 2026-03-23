@@ -6,8 +6,10 @@ import io.cognis.sdk.RouteDefinition;
 import io.cognis.sdk.RouteHandler;
 import io.cognis.sdk.RouteResponse;
 import java.io.InputStream;
+import java.net.URLDecoder;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.function.BiConsumer;
@@ -48,7 +50,12 @@ public final class SaWhatsAppWebhookRoute implements RouteDefinition {
             if ("GET".equalsIgnoreCase(method)) {
                 handleVerification(headers, response);
             } else if ("POST".equalsIgnoreCase(method)) {
-                handleInboundMessage(body, response);
+                String contentType = headers.getOrDefault("content-type", "");
+                if (contentType.contains("application/x-www-form-urlencoded")) {
+                    handleTwilioMessage(body, response);
+                } else {
+                    handleMetaMessage(body, response);
+                }
             } else {
                 response.status(405);
                 response.json("{\"error\":\"method_not_allowed\"}");
@@ -76,7 +83,35 @@ public final class SaWhatsAppWebhookRoute implements RouteDefinition {
         response.body(challenge.getBytes(StandardCharsets.UTF_8));
     }
 
-    private void handleInboundMessage(InputStream body, RouteResponse response) {
+    /** Twilio: {@code application/x-www-form-urlencoded} — fields: From, Body */
+    private void handleTwilioMessage(InputStream body, RouteResponse response) {
+        try {
+            String raw = new String(body.readAllBytes(), StandardCharsets.UTF_8);
+            Map<String, String> fields = parseFormEncoded(raw);
+            String from = fields.getOrDefault("From", "");
+            String text = fields.getOrDefault("Body", "");
+            // Twilio prefixes WhatsApp numbers: "whatsapp:+27821234567" → strip prefix
+            if (from.startsWith("whatsapp:")) {
+                from = from.substring("whatsapp:".length());
+            }
+            if (from.isBlank() || text.isBlank()) {
+                response.status(200);
+                response.json("{\"status\":\"empty\"}");
+                return;
+            }
+            LOG.info("Inbound SA WhatsApp (Twilio) from {} (len={})", from, text.length());
+            dispatchOne(from, text);
+            response.status(200);
+            response.json("{\"status\":\"ok\",\"processed\":1}");
+        } catch (Exception e) {
+            LOG.warn("Failed to parse Twilio WhatsApp payload", e);
+            response.status(400);
+            response.json("{\"error\":\"invalid_payload\"}");
+        }
+    }
+
+    /** Meta Cloud API: {@code application/json} — nested entry/changes/messages */
+    private void handleMetaMessage(InputStream body, RouteResponse response) {
         try {
             byte[] raw = body.readAllBytes();
             if (raw.length == 0) {
@@ -85,26 +120,43 @@ public final class SaWhatsAppWebhookRoute implements RouteDefinition {
                 return;
             }
             Map<String, Object> payload = JSON.readValue(raw, MAP_TYPE);
-            List<ParsedMessage> messages = extractMessages(payload);
+            List<ParsedMessage> messages = extractMetaMessages(payload);
             for (ParsedMessage msg : messages) {
-                LOG.info("Inbound SA WhatsApp from {} (len={})", msg.from(), msg.text().length());
-                try {
-                    messageHandler.accept(msg.from(), msg.text());
-                } catch (Exception e) {
-                    LOG.warn("SA WhatsApp handler threw for from={}", msg.from(), e);
-                }
+                LOG.info("Inbound SA WhatsApp (Meta) from {} (len={})", msg.from(), msg.text().length());
+                dispatchOne(msg.from(), msg.text());
             }
             response.status(200);
             response.json("{\"status\":\"ok\",\"processed\":" + messages.size() + "}");
         } catch (Exception e) {
-            LOG.warn("Failed to parse SA WhatsApp payload", e);
+            LOG.warn("Failed to parse Meta WhatsApp payload", e);
             response.status(400);
             response.json("{\"error\":\"invalid_payload\"}");
         }
     }
 
+    private void dispatchOne(String from, String text) {
+        try {
+            messageHandler.accept(from, text);
+        } catch (Exception e) {
+            LOG.warn("SA WhatsApp handler threw for from={}", from, e);
+        }
+    }
+
+    private static Map<String, String> parseFormEncoded(String body) {
+        Map<String, String> result = new HashMap<>();
+        if (body == null || body.isBlank()) return result;
+        for (String pair : body.split("&")) {
+            int eq = pair.indexOf('=');
+            if (eq < 1) continue;
+            String key   = URLDecoder.decode(pair.substring(0, eq),  StandardCharsets.UTF_8);
+            String value = URLDecoder.decode(pair.substring(eq + 1), StandardCharsets.UTF_8);
+            result.put(key, value);
+        }
+        return result;
+    }
+
     @SuppressWarnings({"unchecked", "rawtypes"})
-    private List<ParsedMessage> extractMessages(Map<String, Object> payload) {
+    private List<ParsedMessage> extractMetaMessages(Map<String, Object> payload) {
         List<ParsedMessage> result = new ArrayList<>();
         List<Object> entries = (List<Object>) payload.get("entry");
         if (entries == null) return result;
