@@ -3,6 +3,7 @@ package io.cognis.vertical.humanitarian;
 import io.cognis.core.agent.AgentOrchestrator;
 import io.cognis.core.agent.AgentSettings;
 import io.cognis.core.bus.MessageBus;
+import io.cognis.core.channel.ChannelReplySender;
 import io.cognis.core.contact.ContactStore;
 import io.cognis.core.heartbeat.HeartbeatJob;
 import io.cognis.core.model.ChatMessage;
@@ -52,6 +53,7 @@ public final class HumanitarianVertical implements CognisVertical {
     private AgentSettings agentSettings;
     private ContactStore contactStore;
     private MessageBus messageBus;
+    private ChannelReplySender replySender;
     private Path workspace;
 
     @Override
@@ -70,9 +72,10 @@ public final class HumanitarianVertical implements CognisVertical {
         this.agentSettings = context.service("agentSettings", AgentSettings.class);
         this.contactStore  = context.service("contactStore", ContactStore.class);
         this.messageBus    = context.service("messageBus", MessageBus.class);
+        this.replySender   = context.service("replySender", ChannelReplySender.class);
         this.workspace     = context.workspace();
-        LOG.info("HumanitarianVertical initialized (orchestrator={}, contactStore={})",
-            orchestrator != null, contactStore != null);
+        LOG.info("HumanitarianVertical initialized (orchestrator={}, contactStore={}, replySender={})",
+            orchestrator != null, contactStore != null, replySender != null);
     }
 
     @Override
@@ -149,6 +152,15 @@ public final class HumanitarianVertical implements CognisVertical {
                     );
                 } catch (Exception e) {
                     LOG.warn("Failed to save history for {}", phone, e);
+                }
+            }
+
+            // Send reply back to the originating channel (WhatsApp / SMS)
+            if (replySender != null && replySender.supports(channel)) {
+                try {
+                    replySender.send(phone, result.content(), channel);
+                } catch (Exception e) {
+                    LOG.warn("Failed to send {} reply to {}", channel, phone, e);
                 }
             }
 

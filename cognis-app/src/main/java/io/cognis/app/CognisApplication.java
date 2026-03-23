@@ -30,6 +30,11 @@ import io.cognis.core.provider.OpenAiCompatProvider;
 import io.cognis.core.provider.ProviderRegistry;
 import io.cognis.core.provider.ProviderRouter;
 import io.cognis.core.heartbeat.HeartbeatScheduler;
+import io.cognis.core.channel.ChannelReplySender;
+import io.cognis.core.channel.MetaCloudApiSender;
+import io.cognis.core.channel.NoopReplySender;
+import io.cognis.core.channel.TwilioWhatsAppSender;
+import io.cognis.core.config.model.WhatsAppConfig;
 import io.cognis.core.contact.FileContactStore;
 import io.cognis.core.memory.FileMemoryStore;
 import io.cognis.core.memory.OpenAiCompatEmbeddingProvider;
@@ -426,11 +431,13 @@ public final class CognisApplication {
             observabilityService
         )) {
             FileContactStore contactStore = new FileContactStore(workspace.resolve(".cognis/contacts.json"));
+            ChannelReplySender replySender = buildReplySender(config.whatsappOrDefaults());
             ToolContext verticalContext = new ToolContext(workspace, Map.of(
                 "agentOrchestrator", orchestrator,
-                "agentSettings", agentSettings,
-                "messageBus", messageBus,
-                "contactStore", contactStore
+                "agentSettings",     agentSettings,
+                "messageBus",        messageBus,
+                "contactStore",      contactStore,
+                "replySender",       replySender
             ));
             HeartbeatScheduler heartbeatScheduler = new HeartbeatScheduler(verticalContext);
             ServiceLoader.load(CognisVertical.class).forEach(vertical -> {
@@ -548,6 +555,19 @@ public final class CognisApplication {
             );
         }
         return new FileMemoryStore(memoriesPath);
+    }
+
+    private static ChannelReplySender buildReplySender(WhatsAppConfig cfg) {
+        if (cfg.isTwilio() && cfg.configured()) {
+            System.out.println("WhatsApp reply sender: Twilio (from=" + cfg.fromNumber() + ")");
+            return new TwilioWhatsAppSender(cfg.accountSid(), cfg.authToken(), cfg.fromNumber());
+        }
+        if (cfg.isMeta() && cfg.configured()) {
+            System.out.println("WhatsApp reply sender: Meta Cloud API (phoneNumberId=" + cfg.phoneNumberId() + ")");
+            return new MetaCloudApiSender(cfg.phoneNumberId(), cfg.accessToken());
+        }
+        System.out.println("WhatsApp reply sender: noop (configure whatsapp.provider in config.json to enable real delivery)");
+        return new NoopReplySender();
     }
 
     private static Transcriber resolveTranscriber(CognisConfig config) {

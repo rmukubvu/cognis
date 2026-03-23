@@ -3,6 +3,7 @@ package io.cognis.vertical.sa.agriculture;
 import io.cognis.core.agent.AgentOrchestrator;
 import io.cognis.core.agent.AgentSettings;
 import io.cognis.core.bus.MessageBus;
+import io.cognis.core.channel.ChannelReplySender;
 import io.cognis.core.contact.ContactStore;
 import io.cognis.core.heartbeat.HeartbeatJob;
 import io.cognis.core.model.ChatMessage;
@@ -83,6 +84,7 @@ public final class SaAgricultureVertical implements CognisVertical {
     private AgentSettings agentSettings;
     private ContactStore contactStore;
     private MessageBus messageBus;
+    private ChannelReplySender replySender;
     private Path workspace;
 
     @Override
@@ -105,9 +107,10 @@ public final class SaAgricultureVertical implements CognisVertical {
         this.agentSettings = context.service("agentSettings", AgentSettings.class);
         this.contactStore  = context.service("contactStore", ContactStore.class);
         this.messageBus    = context.service("messageBus", MessageBus.class);
+        this.replySender   = context.service("replySender", ChannelReplySender.class);
         this.workspace     = context.workspace();
-        LOG.info("SaAgricultureVertical initialized (orchestrator={}, contactStore={})",
-            orchestrator != null, contactStore != null);
+        LOG.info("SaAgricultureVertical initialized (orchestrator={}, contactStore={}, replySender={})",
+            orchestrator != null, contactStore != null, replySender != null);
     }
 
     @Override
@@ -192,6 +195,16 @@ public final class SaAgricultureVertical implements CognisVertical {
                 }
             }
 
+            // Send reply back to the farmer's phone via WhatsApp or SMS
+            if (replySender != null && replySender.supports(channel)) {
+                try {
+                    replySender.send(phone, result.content(), channel);
+                } catch (Exception e) {
+                    LOG.warn("Failed to send {} reply to farmer {}", channel, phone, e);
+                }
+            }
+
+            // Publish to message bus for dashboard/WebSocket clients
             if (messageBus != null) {
                 try {
                     messageBus.publish(ChatMessage.assistant(result.content()));
