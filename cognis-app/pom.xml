@@ -39,6 +39,11 @@
       <version>${project.version}</version>
     </dependency>
     <dependency>
+      <groupId>io.cognis</groupId>
+      <artifactId>cognis-vertical-livestock</artifactId>
+      <version>${project.version}</version>
+    </dependency>
+    <dependency>
       <groupId>ch.qos.logback</groupId>
       <artifactId>logback-classic</artifactId>
       <version>${logback.version}</version>

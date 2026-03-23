@@ -19,6 +19,7 @@
     <module>cognis-mcp-server</module>
     <module>cognis-vertical-humanitarian</module>
     <module>cognis-vertical-sa-agriculture</module>
+    <module>cognis-vertical-livestock</module>
     <module>cognis-vertical-starter</module>
   </modules>
 

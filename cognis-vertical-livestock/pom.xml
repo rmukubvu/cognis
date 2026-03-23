@@ -1,0 +1,46 @@
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+ <modelVersion>4.0.0</modelVersion>
+
+ <parent>
+   <groupId>io.cognis</groupId>
+   <artifactId>cognis-parent</artifactId>
+   <version>0.1.0-SNAPSHOT</version>
+ </parent>
+
+ <artifactId>cognis-vertical-livestock</artifactId>
+ <name>cognis-vertical-livestock</name>
+ <description>Livestock farm management vertical — herd tracking, geofence theft alerts, health anomaly detection, morning briefings for cattle/sheep/goat farmers.</description>
+
+ <dependencies>
+   <dependency>
+     <groupId>io.cognis</groupId>
+     <artifactId>cognis-sdk</artifactId>
+     <version>${project.version}</version>
+   </dependency>
+   <dependency>
+     <groupId>com.fasterxml.jackson.core</groupId>
+     <artifactId>jackson-databind</artifactId>
+   </dependency>
+   <dependency>
+     <groupId>com.fasterxml.jackson.datatype</groupId>
+     <artifactId>jackson-datatype-jsr310</artifactId>
+   </dependency>
+   <dependency>
+     <groupId>org.slf4j</groupId>
+     <artifactId>slf4j-api</artifactId>
+   </dependency>
+   <dependency>
+     <groupId>org.junit.jupiter</groupId>
+     <artifactId>junit-jupiter</artifactId>
+     <scope>test</scope>
+   </dependency>
+   <dependency>
+     <groupId>org.assertj</groupId>
+     <artifactId>assertj-core</artifactId>
+     <version>${assertj.version}</version>
+     <scope>test</scope>
+   </dependency>
+ </dependencies>
+</project>
