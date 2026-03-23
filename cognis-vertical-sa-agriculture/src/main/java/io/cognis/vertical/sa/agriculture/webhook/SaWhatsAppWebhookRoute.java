@@ -100,9 +100,14 @@ public final class SaWhatsAppWebhookRoute implements RouteDefinition {
                 return;
             }
             LOG.info("Inbound SA WhatsApp (Twilio) from {} (len={})", from, text.length());
-            dispatchOne(from, text);
+            // ACK Twilio immediately — LLM reply is sent back via TwilioWhatsAppSender,
+            // not via this HTTP response. Processing async prevents connection-reset on
+            // slow LLM calls that exceed Twilio's 15 s webhook timeout.
             response.status(200);
             response.json("{\"status\":\"ok\",\"processed\":1}");
+            final String finalFrom = from;
+            final String finalText = text;
+            Thread.ofVirtual().start(() -> dispatchOne(finalFrom, finalText));
         } catch (Exception e) {
             LOG.warn("Failed to parse Twilio WhatsApp payload", e);
             response.status(400);
@@ -121,12 +126,13 @@ public final class SaWhatsAppWebhookRoute implements RouteDefinition {
             }
             Map<String, Object> payload = JSON.readValue(raw, MAP_TYPE);
             List<ParsedMessage> messages = extractMetaMessages(payload);
-            for (ParsedMessage msg : messages) {
-                LOG.info("Inbound SA WhatsApp (Meta) from {} (len={})", msg.from(), msg.text().length());
-                dispatchOne(msg.from(), msg.text());
-            }
+            // ACK Meta immediately — same async pattern as Twilio
             response.status(200);
             response.json("{\"status\":\"ok\",\"processed\":" + messages.size() + "}");
+            messages.forEach(msg -> {
+                LOG.info("Inbound SA WhatsApp (Meta) from {} (len={})", msg.from(), msg.text().length());
+                Thread.ofVirtual().start(() -> dispatchOne(msg.from(), msg.text()));
+            });
         } catch (Exception e) {
             LOG.warn("Failed to parse Meta WhatsApp payload", e);
             response.status(400);
