@@ -37,6 +37,8 @@ import io.cognis.core.channel.TwilioWhatsAppSender;
 import io.cognis.core.config.model.WhatsAppConfig;
 import io.cognis.core.contact.FileContactStore;
 import io.cognis.core.memory.FileMemoryStore;
+import io.cognis.core.usage.FileUsageStore;
+import io.cognis.core.usage.UsageService;
 import io.cognis.core.memory.OpenAiCompatEmbeddingProvider;
 import io.cognis.core.sandbox.VerticalPolicy;
 import io.cognis.core.tool.PolicyEnforcedToolRegistry;
@@ -51,6 +53,8 @@ import io.cognis.core.session.FileSessionSummaryManager;
 import io.cognis.core.session.SqliteConversationStore;
 import io.cognis.core.tool.ToolContext;
 import io.cognis.core.tool.ToolRegistry;
+import io.undertow.server.HttpHandler;
+import io.undertow.server.HttpServerExchange;
 import io.cognis.core.tool.impl.CronTool;
 import io.cognis.sdk.CognisVertical;
 import io.cognis.core.tool.impl.FilesystemTool;
@@ -431,13 +435,16 @@ public final class CognisApplication {
             observabilityService
         )) {
             FileContactStore contactStore = new FileContactStore(workspace.resolve(".cognis/contacts.json"));
+            FileUsageStore usageStore = new FileUsageStore(workspace.resolve(".cognis/usage.jsonl"));
+            UsageService usageService = new UsageService(usageStore);
             ChannelReplySender replySender = buildReplySender(config.whatsappOrDefaults());
             ToolContext verticalContext = new ToolContext(workspace, Map.of(
                 "agentOrchestrator", orchestrator,
                 "agentSettings",     agentSettings,
                 "messageBus",        messageBus,
                 "contactStore",      contactStore,
-                "replySender",       replySender
+                "replySender",       replySender,
+                "usageService",      usageService
             ));
             HeartbeatScheduler heartbeatScheduler = new HeartbeatScheduler(verticalContext);
             ServiceLoader.load(CognisVertical.class).forEach(vertical -> {
@@ -463,6 +470,21 @@ public final class CognisApplication {
                 } catch (Exception e) {
                     throw new IllegalStateException("Failed to load vertical: " + vertical.name(), e);
                 }
+            });
+
+            server.registerRoute("GET", "/usage", (HttpHandler) (HttpServerExchange exchange) -> {
+                String query = exchange.getQueryString();
+                int days = 30;
+                if (query != null && query.contains("days=")) {
+                    try { days = Integer.parseInt(query.replaceAll(".*days=(\\d+).*", "$1")); } catch (Exception ignored) {}
+                }
+                Map<String, Object> summary = usageService.summary(days);
+                String json = new com.fasterxml.jackson.databind.ObjectMapper()
+                    .registerModule(new com.fasterxml.jackson.datatype.jsr310.JavaTimeModule())
+                    .writeValueAsString(summary);
+                exchange.getResponseHeaders().put(io.undertow.util.Headers.CONTENT_TYPE, "application/json");
+                exchange.setStatusCode(200);
+                exchange.getResponseSender().send(json);
             });
 
             Runtime.getRuntime().addShutdownHook(new Thread(() -> {

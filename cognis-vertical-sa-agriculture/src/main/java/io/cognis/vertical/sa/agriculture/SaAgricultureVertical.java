@@ -16,6 +16,7 @@ import io.cognis.vertical.sa.agriculture.heartbeat.MarketPriceHeartbeatJob;
 import io.cognis.vertical.sa.agriculture.tool.MarketLocatorTool;
 import io.cognis.vertical.sa.agriculture.tool.SafexPriceTool;
 import io.cognis.vertical.sa.agriculture.tool.SubsidyNavigatorTool;
+import io.cognis.core.usage.UsageService;
 import io.cognis.vertical.sa.agriculture.webhook.SaSmsWebhookRoute;
 import io.cognis.vertical.sa.agriculture.webhook.SaWhatsAppWebhookRoute;
 import java.nio.file.Path;
@@ -86,6 +87,7 @@ public final class SaAgricultureVertical implements CognisVertical {
     private MessageBus messageBus;
     private ChannelReplySender replySender;
     private Path workspace;
+    private UsageService usageService;
 
     @Override
     public String name() {
@@ -109,6 +111,7 @@ public final class SaAgricultureVertical implements CognisVertical {
         this.messageBus    = context.service("messageBus", MessageBus.class);
         this.replySender   = context.service("replySender", ChannelReplySender.class);
         this.workspace     = context.workspace();
+        this.usageService  = context.service("usageService", UsageService.class);
         LOG.info("SaAgricultureVertical initialized (orchestrator={}, contactStore={}, replySender={})",
             orchestrator != null, contactStore != null, replySender != null);
     }
@@ -174,6 +177,7 @@ public final class SaAgricultureVertical implements CognisVertical {
         LOG.info("Routing farmer message: channel={} phone={}", channel, phone);
 
         try {
+            long started = System.currentTimeMillis();
             var result = orchestrator.run(
                 prompt,
                 saSettings,
@@ -181,6 +185,21 @@ public final class SaAgricultureVertical implements CognisVertical {
                 history,
                 Map.of("client_id", phone, "channel", channel, "vertical", "sa-agriculture")
             );
+            long durationMs = System.currentTimeMillis() - started;
+
+            if (usageService != null) {
+                Map<String, Object> usage = result.usage();
+                int prompt_tokens = usage.containsKey("prompt_tokens") ? ((Number) usage.get("prompt_tokens")).intValue()
+                                  : usage.containsKey("input_tokens")  ? ((Number) usage.get("input_tokens")).intValue() : 0;
+                int completion_tokens = usage.containsKey("completion_tokens") ? ((Number) usage.get("completion_tokens")).intValue()
+                                      : usage.containsKey("output_tokens")     ? ((Number) usage.get("output_tokens")).intValue() : 0;
+                usageService.record(
+                    name(), phone, channel,
+                    saSettings.provider(), saSettings.model(),
+                    prompt_tokens, completion_tokens, durationMs,
+                    List.of()
+                );
+            }
 
             if (contactStore != null) {
                 try {

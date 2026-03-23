@@ -12,6 +12,7 @@ import io.cognis.core.tool.Tool;
 import io.cognis.core.tool.ToolContext;
 import io.cognis.sdk.CognisVertical;
 import io.cognis.sdk.RouteDefinition;
+import io.cognis.core.usage.UsageService;
 import io.cognis.vertical.humanitarian.heartbeat.MorningBriefHeartbeatJob;
 import io.cognis.vertical.humanitarian.heartbeat.OverdueShipmentHeartbeatJob;
 import io.cognis.vertical.humanitarian.supply.SupplyTrackingTool;
@@ -55,6 +56,7 @@ public final class HumanitarianVertical implements CognisVertical {
     private MessageBus messageBus;
     private ChannelReplySender replySender;
     private Path workspace;
+    private UsageService usageService;
 
     @Override
     public String name() {
@@ -74,6 +76,7 @@ public final class HumanitarianVertical implements CognisVertical {
         this.messageBus    = context.service("messageBus", MessageBus.class);
         this.replySender   = context.service("replySender", ChannelReplySender.class);
         this.workspace     = context.workspace();
+        this.usageService  = context.service("usageService", UsageService.class);
         LOG.info("HumanitarianVertical initialized (orchestrator={}, contactStore={}, replySender={})",
             orchestrator != null, contactStore != null, replySender != null);
     }
@@ -133,6 +136,7 @@ public final class HumanitarianVertical implements CognisVertical {
         LOG.info("Routing field message: channel={} phone={} text={}", channel, phone, text);
 
         try {
+            long started = System.currentTimeMillis();
             var result = orchestrator.run(
                 prompt,
                 agentSettings,
@@ -140,6 +144,21 @@ public final class HumanitarianVertical implements CognisVertical {
                 history,
                 Map.of("client_id", phone, "channel", channel)
             );
+            long durationMs = System.currentTimeMillis() - started;
+
+            if (usageService != null) {
+                Map<String, Object> usage = result.usage();
+                int prompt_tokens = usage.containsKey("prompt_tokens") ? ((Number) usage.get("prompt_tokens")).intValue()
+                                  : usage.containsKey("input_tokens")  ? ((Number) usage.get("input_tokens")).intValue() : 0;
+                int completion_tokens = usage.containsKey("completion_tokens") ? ((Number) usage.get("completion_tokens")).intValue()
+                                      : usage.containsKey("output_tokens")     ? ((Number) usage.get("output_tokens")).intValue() : 0;
+                usageService.record(
+                    name(), phone, channel,
+                    agentSettings.provider(), agentSettings.model(),
+                    prompt_tokens, completion_tokens, durationMs,
+                    List.of()
+                );
+            }
 
             // Persist turn for next message — cross-channel continuity
             if (contactStore != null) {
