@@ -12,6 +12,7 @@ import io.cognis.core.memory.ExtractedMemory;
 import io.cognis.core.memory.HeuristicMemoryExtractor;
 import io.cognis.core.memory.MemoryExtractor;
 import io.cognis.core.memory.MemoryStore;
+import io.cognis.core.memory.SharedMemoryStore;
 import io.cognis.core.observability.ObservabilityService;
 import io.cognis.core.profile.ProfileStore;
 import io.cognis.core.session.ConversationStore;
@@ -112,7 +113,19 @@ public final class AgentOrchestrator {
             transcript.addAll(priorTurns);
         }
         transcript.add(ChatMessage.user(userPrompt));
-        RunContext runContext = new RunContext(runMetadata);
+
+        // Resolve or create trace context for this run. Child orchestrators receive a
+        // TraceContext injected via toolServices by AgentTool.buildChildServices(); root
+        // orchestrators get a fresh one.
+        TraceContext traceContext = service("traceContext", TraceContext.class);
+        if (traceContext == null) traceContext = TraceContext.root();
+
+        // Build per-run services map that makes the trace context available to tools
+        // (AgentTool reads it to create child spans).
+        Map<String, Object> runServices = new java.util.HashMap<>(toolServices);
+        runServices.put("traceContext", traceContext);
+
+        RunContext runContext = new RunContext(runMetadata, traceContext, runServices);
 
         LlmProvider provider = providerRouter.resolve(settings.provider(), settings.model());
         LOG.debug("Using provider {} with model {}", provider.name(), settings.model());
@@ -152,11 +165,14 @@ public final class AgentOrchestrator {
                 String toolOutput = executeTool(call, workspace, runContext);
                 transcript.add(ChatMessage.tool(toolOutput, call.id()));
             }
+            // Heartbeat: update liveness timestamp so ZombieReaper can distinguish
+            // stalled runs from legitimately long-running ones.
+            sendHeartbeat();
         }
 
         String timeoutMessage = "Stopped after max tool iterations";
         transcript.add(ChatMessage.assistant(timeoutMessage));
-        AgentResult result = new AgentResult(timeoutMessage, List.copyOf(transcript), usage);
+        AgentResult result = AgentResult.maxIterations(timeoutMessage, List.copyOf(transcript), usage);
         postProcessTurn(userPrompt, result);
         return result;
     }
@@ -171,7 +187,7 @@ public final class AgentOrchestrator {
         long started = System.currentTimeMillis();
         recordToolEvent("tool_started", tool.name(), input, null, started, runContext, null);
         try {
-            String output = tool.execute(input, new ToolContext(workspace, toolServices));
+            String output = tool.execute(input, new ToolContext(workspace, runContext.runServices));
             recordToolEvent("tool_succeeded", tool.name(), input, output, started, runContext, null);
             return output;
         } catch (RuntimeException ex) {
@@ -283,7 +299,30 @@ public final class AgentOrchestrator {
             }
         }
 
+        // If this is a child agent, inject shared memory written by upstream agents
+        // in the same spawn tree. The parent run's ID is used as the namespace.
+        SharedMemoryStore sharedMemory = service("sharedMemoryStore", SharedMemoryStore.class);
+        String parentRunId = (String) toolServices.get("currentRunId");
+        if (sharedMemory != null && parentRunId != null && !parentRunId.isBlank()) {
+            try {
+                String shared = sharedMemory.getSummary(parentRunId);
+                if (!shared.isBlank()) {
+                    prompt.append("\n\n").append(shared);
+                }
+            } catch (IOException e) {
+                LOG.debug("Shared memory injection skipped: {}", e.getMessage());
+            }
+        }
+
         return prompt.toString();
+    }
+
+    private void sendHeartbeat() {
+        SubagentRegistry registry = service("subagentRegistry", SubagentRegistry.class);
+        String currentRunId = (String) toolServices.get("currentRunId");
+        if (registry != null && currentRunId != null && !currentRunId.isBlank()) {
+            registry.updateHeartbeat(currentRunId);
+        }
     }
 
     private <T> T service(String key, Class<T> type) {
@@ -486,12 +525,18 @@ public final class AgentOrchestrator {
     private static final class RunContext {
         private final String clientId;
         private final String taskId;
+        private final String traceId;
+        private final String spanId;
+        final Map<String, Object> runServices;
         private boolean smsSent;
         private String smsRecipient = "";
 
-        private RunContext(Map<String, Object> metadata) {
+        private RunContext(Map<String, Object> metadata, TraceContext trace, Map<String, Object> runServices) {
             this.clientId = string(metadata.get("client_id"));
             this.taskId = string(metadata.get("task_id"));
+            this.traceId = trace.traceId();
+            this.spanId = trace.spanId();
+            this.runServices = java.util.Collections.unmodifiableMap(runServices);
         }
 
         private void copyBaseAttributes(Map<String, Object> target) {
@@ -500,6 +545,12 @@ public final class AgentOrchestrator {
             }
             if (!taskId.isBlank()) {
                 target.put("task_id", taskId);
+            }
+            if (traceId != null && !traceId.isBlank()) {
+                target.put("trace_id", traceId);
+            }
+            if (spanId != null && !spanId.isBlank()) {
+                target.put("span_id", spanId);
             }
         }
 

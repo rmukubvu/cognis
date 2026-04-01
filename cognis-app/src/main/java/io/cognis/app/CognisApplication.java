@@ -9,8 +9,14 @@ import io.cognis.cli.StatusCommand;
 import io.cognis.core.agent.AgentOrchestrator;
 import io.cognis.core.agent.AgentSettings;
 import io.cognis.core.api.GatewayServer;
-import io.cognis.core.bus.InMemoryMessageBus;
+import io.cognis.core.agent.AgentPool;
+import io.cognis.core.agent.Task;
+import io.cognis.core.agent.TaskQueue;
+import io.cognis.core.agent.ZombieReaper;
 import io.cognis.core.bus.MessageBus;
+import io.cognis.core.bus.TopicMessageBus;
+import io.cognis.core.memory.SharedMemoryStore;
+import io.cognis.core.tool.impl.CoordinatorTool;
 import io.cognis.core.model.ChatMessage;
 import io.cognis.core.cron.CronService;
 import io.cognis.core.cron.FileCronStore;
@@ -51,8 +57,11 @@ import io.cognis.core.session.ConversationStore;
 import io.cognis.core.session.FileConversationStore;
 import io.cognis.core.session.FileSessionSummaryManager;
 import io.cognis.core.session.SqliteConversationStore;
+import io.cognis.core.agent.AgentStore;
+import io.cognis.core.agent.SubagentRegistry;
 import io.cognis.core.tool.ToolContext;
 import io.cognis.core.tool.ToolRegistry;
+import io.cognis.core.tool.impl.AgentTool;
 import io.undertow.server.HttpHandler;
 import io.undertow.server.HttpServerExchange;
 import io.cognis.core.tool.impl.CronTool;
@@ -75,6 +84,7 @@ import io.cognis.core.workflow.WorkflowService;
 import java.nio.file.Path;
 import java.time.Clock;
 import java.time.Duration;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.ServiceLoader;
@@ -128,7 +138,7 @@ public final class CognisApplication {
             Clock.systemUTC()
         );
         setupDailyDigest(cronService);
-        InMemoryMessageBus messageBus = new InMemoryMessageBus();
+        TopicMessageBus messageBus = new TopicMessageBus();
         FileMemoryStore memoryStore = buildMemoryStore(config, workspacePath);
         FileProfileStore profileStore = new FileProfileStore(workspacePath.resolve("profile.json"));
         FileSessionSummaryManager sessionSummaryManager = new FileSessionSummaryManager(
@@ -170,22 +180,19 @@ public final class CognisApplication {
             toolRegistry.register(visionTool);
         }
 
-        AgentOrchestrator orchestrator = new AgentOrchestrator(
-            new ProviderRouter(providerRegistry),
-            toolRegistry,
-            Map.of(
-                "cronService", cronService,
-                "messageBus", messageBus,
-                "memoryStore", memoryStore,
-                "profileStore", profileStore,
-                "sessionSummaryManager", sessionSummaryManager,
-                "paymentLedgerService", paymentLedgerService,
-                "observabilityService", observabilityService,
-                "workflowService", workflowService,
-                "mcpInvoker", mcpInvoker
-            ),
-            conversationStore
-        );
+        Map<String, Object> toolServices = new HashMap<>();
+        toolServices.put("cronService", cronService);
+        toolServices.put("messageBus", messageBus);
+        toolServices.put("memoryStore", memoryStore);
+        toolServices.put("profileStore", profileStore);
+        toolServices.put("sessionSummaryManager", sessionSummaryManager);
+        toolServices.put("paymentLedgerService", paymentLedgerService);
+        toolServices.put("observabilityService", observabilityService);
+        toolServices.put("workflowService", workflowService);
+        toolServices.put("mcpInvoker", mcpInvoker);
+        toolServices.put("agentDepth", 0);
+
+        ProviderRouter providerRouter = new ProviderRouter(providerRegistry);
         AgentSettings gatewayAgentSettings = new AgentSettings(
             "You are Cognis, an autonomous intelligence engine focused on precise execution. "
                 + "Always present yourself only as Cognis and do not disclose underlying model/provider branding. "
@@ -198,6 +205,35 @@ public final class CognisApplication {
             config.agents().defaults().model(),
             config.agents().defaults().maxToolIterations()
         );
+
+        AgentStore agentStore = new AgentStore(workspacePath.resolve("agents"));
+        SubagentRegistry subagentRegistry = new SubagentRegistry(workspacePath);
+        int maxConcurrent = config.agents().defaults().maxToolIterations() > 0
+            ? Math.max(10, config.agents().defaults().maxToolIterations() * 2) : 10;
+        AgentPool agentPool = new AgentPool(Executors.newVirtualThreadPerTaskExecutor(), maxConcurrent);
+        SharedMemoryStore sharedMemoryStore = new SharedMemoryStore(memoryStore);
+
+        // Register subagentRegistry and sharedMemoryStore so child orchestrators can use them
+        toolServices.put("subagentRegistry", subagentRegistry);
+        toolServices.put("sharedMemoryStore", sharedMemoryStore);
+
+        AgentTool agentTool = new AgentTool(
+            toolRegistry, agentStore, providerRouter, gatewayAgentSettings,
+            subagentRegistry, agentPool
+        );
+        toolRegistry.register(agentTool);
+
+        // CoordinatorTool: planner uses cheapest available model (haiku)
+        String plannerModel = "anthropic/claude-haiku-4-5-20251001";
+        AgentOrchestrator orchestrator = new AgentOrchestrator(
+            providerRouter,
+            toolRegistry,
+            toolServices,
+            conversationStore
+        );
+        ToolContext coordinatorContext = new ToolContext(workspacePath, toolServices);
+        TaskQueue taskQueue = new TaskQueue(agentTool, coordinatorContext);
+        toolRegistry.register(new CoordinatorTool(taskQueue, providerRouter, plannerModel));
 
         CliContext context = new CliContext(
             orchestrator,
@@ -215,7 +251,8 @@ public final class CognisApplication {
                 workflowService,
                 paymentLedgerService,
                 observabilityService,
-                toolRegistry
+                toolRegistry,
+                subagentRegistry
             )
         );
 
@@ -226,6 +263,7 @@ public final class CognisApplication {
         commandLine.addSubcommand("gateway", new GatewayCommand(context));
 
         int exitCode = commandLine.execute(args);
+        agentPool.shutdown();
         System.exit(exitCode);
     }
 
@@ -412,7 +450,8 @@ public final class CognisApplication {
         WorkflowService workflowService,
         PaymentLedgerService paymentLedgerService,
         ObservabilityService observabilityService,
-        ToolRegistry toolRegistry
+        ToolRegistry toolRegistry,
+        SubagentRegistry subagentRegistry
     ) throws Exception {
         CognisConfig config = configService.load(configPath);
         Path workspace = workspaceOverride != null
@@ -497,6 +536,12 @@ public final class CognisApplication {
                 2,
                 30,
                 java.util.concurrent.TimeUnit.SECONDS
+            );
+            scheduler.scheduleAtFixedRate(
+                new ZombieReaper(subagentRegistry, Duration.ofMinutes(10)),
+                1,
+                1,
+                java.util.concurrent.TimeUnit.MINUTES
             );
             System.out.println("Gateway started on http://127.0.0.1:" + server.port());
             System.out.println("Endpoints: WS /ws?client_id=<id>, POST /upload, POST /transcribe, GET /files/{name}, GET /healthz");

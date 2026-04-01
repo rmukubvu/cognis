@@ -27,18 +27,81 @@ clawmobile (mobile)
 +--------------+--------------+
                |
                v
-+-----------------------------+
-| cognis-core                 |
-|  - AgentOrchestrator        |
-|  - ProviderRouter           |
-|  - ToolRegistry             |
-|  - Workflow/Cron/Memory     |
-|  - Payments + Observability |
-+-----------------------------+
++----------------------------------------------------+
+| cognis-core                                        |
+|                                                    |
+|  Agent Layer                                       |
+|  ├── AgentOrchestrator  (LLM loop, trace, heartbeat)|
+|  ├── AgentTool          (spawn/await/steer/kill)   |
+|  ├── AgentPool          (semaphore concurrency cap)|
+|  ├── SubagentRegistry   (persistent run tracking) |
+|  ├── TaskQueue          (DAG dependency executor) |
+|  ├── CoordinatorTool    (goal → task graph → LLM) |
+|  ├── TraceContext       (traceId/spanId chain)    |
+|  └── ZombieReaper       (stale run detection)     |
+|                                                    |
+|  Infrastructure                                    |
+|  ├── TopicMessageBus    (pub/sub fan-out)         |
+|  ├── SharedMemoryStore  (namespaced agent memory) |
+|  ├── ProviderRouter     (LLM provider fallback)   |
+|  ├── ToolRegistry       (tool dispatch)           |
+|  └── Workflow/Cron/Payments/Observability         |
++----------------------------------------------------+
                |
                v
        File-backed stores
   (.cognis/*, memory/*, uploads/*)
+```
+
+### Multi-Agent Execution Model
+
+Cognis uses a **single-orchestrator + async subagent pool** model. The parent LLM loop drives
+orchestration by calling agent tools; the framework handles concurrency, tracing, and fault recovery.
+
+```text
+AgentOrchestrator (root)
+  │  TraceContext.root() → traceId propagated to all descendants
+  │
+  ├─ AgentTool.spawn("research X") ──► AgentPool.submit() ──► child run (virtual thread)
+  │                                         child.traceId == root.traceId
+  ├─ AgentTool.spawn("research Y") ──► AgentPool.submit() ──► child run (virtual thread)
+  │
+  ├─ AgentTool.await_all([runA, runB])  ← blocks until both complete
+  │
+  └─ CoordinatorTool.decompose(goal)
+       │  planner LLM → JSON task graph [{id, prompt, role, dependsOn[]}]
+       └─ TaskQueue.submit(tasks)
+            ├─ tasks with no deps     → spawned immediately (parallel)
+            └─ tasks with dependsOn  → CompletableFuture.allOf(...).thenCompose(spawn)
+                                        zero polling, event-driven chaining
+```
+
+**Key properties:**
+- `MAX_DEPTH = 2`: child agents can spawn grandchildren; deeper nesting is blocked
+- `AgentPool`: semaphore-bounded — rejects spawns when at capacity (default 10 concurrent)
+- `SubagentRegistry`: all runs persisted to `.cognis/subagents/runs.json` for audit and recovery
+- `ZombieReaper`: scheduled every 60s — marks RUNNING runs with stale heartbeats as FAILED
+- `TraceContext`: `traceId` shared across entire spawn tree; `spanId` unique per run; emitted in all observability events
+
+### Topic Message Bus
+
+```text
+TopicMessageBus
+  ├── publish("cron.workflow", msg)  → fan-out to all "cron.workflow" subscribers (virtual threads)
+  ├── publish("channel.whatsapp", msg)
+  └── subscribe("channel.whatsapp", handler)  → returns subscriptionId for later unsubscribe
+```
+
+Verticals subscribe to topics they care about. Adding a new notification channel (e.g. email, push)
+requires only a new `subscribe()` call — no changes to existing vertical code.
+
+### Shared Memory
+
+Agents within the same spawn tree share facts via `SharedMemoryStore` without passing raw context strings:
+
+```text
+field-intake agent  →  sharedMemory.write(parentRunId, "beneficiary_count", "47 at Juba site 3")
+supply-matching agent  ←  getSummary(parentRunId) injected into system prompt automatically
 ```
 
 ## Modules
@@ -58,11 +121,24 @@ clawmobile (mobile)
 
 ## Core Features
 
-- Java 21 runtime (virtual threads used in gateway execution path)
+- Java 21 runtime (virtual threads for all subagent spawning)
 - Multi-provider routing + fallback chains
   - `openrouter`, `openai`, `anthropic`, `bedrock`, `bedrock_openai`, `openai_codex`, `github_copilot`
+- Multi-agent orchestration
+  - `agent` tool: `spawn`, `await`, `await_all`, `steer`, `kill`, `status`, `create`, `chat`, `list`
+  - `coordinator` tool: decomposes a goal via a planner LLM into a parallel task graph, executes via `TaskQueue`
+  - `TaskQueue`: DAG dependency resolution (Kahn's topological sort) + `CompletableFuture` chaining, zero polling
+  - `AgentPool`: semaphore-based concurrency cap (configurable, default 10 concurrent subagent runs)
+  - `ZombieReaper`: background daemon that terminates stalled subagent runs via heartbeat liveness check
+  - `TraceContext`: `traceId`/`spanId`/`parentSpanId` propagated through every spawn chain and emitted in all audit events
+- Shared memory
+  - `SharedMemoryStore`: namespaced key-value store so parallel subagents share facts without string serialisation
+- Pub/sub message bus
+  - `TopicMessageBus`: topic-based fan-out with virtual-thread listener dispatch and `subscribe`/`unsubscribe`
 - Tooling
   - `filesystem`, `shell`, `web`, `cron`, `message`, `memory`, `profile`, `notify`, `payments`, `workflow`, `vision` (when configured)
+- Typed result handling
+  - `AgentResult` carries `AgentStatus` (`SUCCESS`, `MAX_ITERATIONS`, `TOOL_ERROR`) — callers no longer string-match timeout messages
 - Mobile gateway
   - HTTP upload/transcribe/files + WebSocket chat protocol
 - Memory and context
@@ -70,7 +146,7 @@ clawmobile (mobile)
 - Payments guardrails
   - policy limits, merchant/category allowlists, confirmation threshold, quiet hours, status and ledger tracking
 - Observability
-  - append-only audit events + derived dashboard metrics
+  - append-only audit events with full trace IDs + derived dashboard metrics
 - Dashboard
   - KPI cards, execution snapshot, audit filtering, CSV export
 
