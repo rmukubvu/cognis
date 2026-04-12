@@ -43,6 +43,7 @@ import io.cognis.core.channel.TwilioWhatsAppSender;
 import io.cognis.core.config.model.WhatsAppConfig;
 import io.cognis.core.contact.FileContactStore;
 import io.cognis.core.memory.FileMemoryStore;
+import io.cognis.core.memory.MemoryStore;
 import io.cognis.core.usage.FileUsageStore;
 import io.cognis.core.usage.UsageService;
 import io.cognis.core.memory.OpenAiCompatEmbeddingProvider;
@@ -58,6 +59,7 @@ import io.cognis.core.session.FileConversationStore;
 import io.cognis.core.session.FileSessionSummaryManager;
 import io.cognis.core.session.SqliteConversationStore;
 import io.cognis.core.agent.AgentStore;
+import io.cognis.core.agent.FileAgentStore;
 import io.cognis.core.agent.SubagentRegistry;
 import io.cognis.core.tool.ToolContext;
 import io.cognis.core.tool.ToolRegistry;
@@ -77,6 +79,10 @@ import io.cognis.core.tool.impl.ShellTool;
 import io.cognis.core.tool.impl.VisionTool;
 import io.cognis.core.tool.impl.WebTool;
 import io.cognis.core.tool.impl.WorkflowTool;
+import io.cognis.core.stratus.StratusClient;
+import io.cognis.core.stratus.StratusSandboxedShellTool;
+import io.cognis.core.stratus.StratusPolicyWebTool;
+import io.cognis.core.stratus.StratusVfsMemoryStore;
 import io.cognis.core.voice.NoopTranscriber;
 import io.cognis.core.voice.OpenAiTranscriber;
 import io.cognis.core.voice.Transcriber;
@@ -122,15 +128,56 @@ public final class CognisApplication {
             "http://localhost:11434/v1"
         );
 
+        // -----------------------------------------------------------------------
+        // Tier 1a — StratusOS integration (active when STRATUS_GATEWAY_URL is set)
+        //
+        // When STRATUS_GATEWAY_URL=http://localhost:7070 is present in the environment:
+        //   • LLM calls route through StratusOS /v1/chat/completions (policy-enforced proxy)
+        //   • ShellTool routes through /syscall (audited, sandboxed)
+        //   • WebTool routes through /syscall (audited, network policy enforced)
+        //   • Memory uses StratusOS VFS (vector search built in via chromem-go)
+        //
+        // Without STRATUS_GATEWAY_URL all defaults remain — no change to existing behaviour.
+        // -----------------------------------------------------------------------
+        StratusClient stratusClient = StratusClient.fromEnv();
+        boolean stratusEnabled = stratusClient != null;
+        if (stratusEnabled) {
+            System.out.println("[stratus] Connected to StratusOS at " + stratusClient.gatewayUrl());
+        }
+
         ProviderRegistry providerRegistry = new ProviderRegistry();
-        providerRegistry.register(new FallbackLlmProvider("openrouter", List.of(openrouter, openai, anthropic, bedrockOpenai, bedrock)));
-        providerRegistry.register(new FallbackLlmProvider("openai", List.of(openai, openrouter, anthropic, bedrockOpenai, bedrock)));
-        providerRegistry.register(new FallbackLlmProvider("anthropic", List.of(anthropic, openrouter, openai, bedrockOpenai, bedrock)));
-        providerRegistry.register(new FallbackLlmProvider("bedrock", List.of(bedrock, bedrockOpenai, openrouter, openai, anthropic)));
-        providerRegistry.register(new FallbackLlmProvider("bedrock_openai", List.of(bedrockOpenai, bedrock, openai, openrouter, anthropic)));
-        providerRegistry.register(new FallbackLlmProvider("openai_codex", List.of(codex, openai, openrouter, anthropic, bedrockOpenai, bedrock)));
-        providerRegistry.register(new FallbackLlmProvider("github_copilot", List.of(copilot, openai, openrouter, anthropic, bedrockOpenai, bedrock)));
-        providerRegistry.register(new FallbackLlmProvider("ollama", List.of(ollama, openrouter, openai, anthropic)));
+
+        if (stratusEnabled) {
+            // Route all LLM calls through StratusOS OpenAI-compat endpoint.
+            // StratusOS applies intent classification, token budget, and policy
+            // before forwarding to the configured upstream provider.
+            LlmProvider stratusProvider = new OpenAiCompatProvider(
+                "stratus",
+                System.getenv().getOrDefault("STRATUS_AUTH_TOKEN", "stratus-dev-token-change-me"),
+                stratusClient.gatewayUrl() + "/v1",
+                Map.of()
+            );
+            // "stratus" becomes the primary; others remain as fallbacks in case
+            // StratusOS is temporarily unreachable.
+            providerRegistry.register(new FallbackLlmProvider("stratus",    List.of(stratusProvider, openai, anthropic)));
+            providerRegistry.register(new FallbackLlmProvider("openrouter", List.of(stratusProvider, openrouter, openai, anthropic, bedrockOpenai, bedrock)));
+            providerRegistry.register(new FallbackLlmProvider("openai",     List.of(stratusProvider, openai, openrouter, anthropic, bedrockOpenai, bedrock)));
+            providerRegistry.register(new FallbackLlmProvider("anthropic",  List.of(stratusProvider, anthropic, openrouter, openai, bedrockOpenai, bedrock)));
+            providerRegistry.register(new FallbackLlmProvider("bedrock",    List.of(stratusProvider, bedrock, bedrockOpenai, openrouter, openai, anthropic)));
+            providerRegistry.register(new FallbackLlmProvider("bedrock_openai", List.of(stratusProvider, bedrockOpenai, bedrock, openai, openrouter, anthropic)));
+            providerRegistry.register(new FallbackLlmProvider("openai_codex",   List.of(stratusProvider, codex, openai, openrouter, anthropic, bedrockOpenai, bedrock)));
+            providerRegistry.register(new FallbackLlmProvider("github_copilot", List.of(stratusProvider, copilot, openai, openrouter, anthropic, bedrockOpenai, bedrock)));
+            providerRegistry.register(new FallbackLlmProvider("ollama",         List.of(stratusProvider, ollama, openrouter, openai, anthropic)));
+        } else {
+            providerRegistry.register(new FallbackLlmProvider("openrouter", List.of(openrouter, openai, anthropic, bedrockOpenai, bedrock)));
+            providerRegistry.register(new FallbackLlmProvider("openai", List.of(openai, openrouter, anthropic, bedrockOpenai, bedrock)));
+            providerRegistry.register(new FallbackLlmProvider("anthropic", List.of(anthropic, openrouter, openai, bedrockOpenai, bedrock)));
+            providerRegistry.register(new FallbackLlmProvider("bedrock", List.of(bedrock, bedrockOpenai, openrouter, openai, anthropic)));
+            providerRegistry.register(new FallbackLlmProvider("bedrock_openai", List.of(bedrockOpenai, bedrock, openai, openrouter, anthropic)));
+            providerRegistry.register(new FallbackLlmProvider("openai_codex", List.of(codex, openai, openrouter, anthropic, bedrockOpenai, bedrock)));
+            providerRegistry.register(new FallbackLlmProvider("github_copilot", List.of(copilot, openai, openrouter, anthropic, bedrockOpenai, bedrock)));
+            providerRegistry.register(new FallbackLlmProvider("ollama", List.of(ollama, openrouter, openai, anthropic)));
+        }
 
         Path workspacePath = ConfigPaths.resolveWorkspace(config.agents().defaults().workspace());
         CronService cronService = new CronService(
@@ -139,7 +186,13 @@ public final class CognisApplication {
         );
         setupDailyDigest(cronService);
         TopicMessageBus messageBus = new TopicMessageBus();
-        FileMemoryStore memoryStore = buildMemoryStore(config, workspacePath);
+
+        // Tier 1d — memory store: StratusOS VFS (with built-in vector search) when available,
+        //           else file-backed JSON store as before.
+        MemoryStore memoryStore = stratusEnabled
+            ? new StratusVfsMemoryStore(stratusClient,
+                System.getenv().getOrDefault("COGNIS_VERTICAL", "default"))
+            : buildMemoryStore(config, workspacePath);
         FileProfileStore profileStore = new FileProfileStore(workspacePath.resolve("profile.json"));
         FileSessionSummaryManager sessionSummaryManager = new FileSessionSummaryManager(
             workspacePath.resolve("memory/session-summary.txt"),
@@ -165,8 +218,17 @@ public final class CognisApplication {
 
         ToolRegistry toolRegistry = new ToolRegistry();
         toolRegistry.register(new FilesystemTool());
-        toolRegistry.register(new ShellTool(Duration.ofSeconds(30)));
-        toolRegistry.register(new WebTool(config.tools().web().search().apiKey(), config.tools().web().search().maxResults()));
+
+        // Tier 1c — route dangerous tools through StratusOS /syscall when available.
+        // StratusOS applies policy, records every call in the immutable ledger,
+        // and (if sandbox.enabled) enforces Landlock + seccomp at the kernel level.
+        if (stratusEnabled) {
+            toolRegistry.register(new StratusSandboxedShellTool(stratusClient));
+            toolRegistry.register(new StratusPolicyWebTool(stratusClient));
+        } else {
+            toolRegistry.register(new ShellTool(Duration.ofSeconds(30)));
+            toolRegistry.register(new WebTool(config.tools().web().search().apiKey(), config.tools().web().search().maxResults()));
+        }
         toolRegistry.register(new CronTool());
         toolRegistry.register(new MessageTool());
         toolRegistry.register(new MemoryTool());
@@ -206,8 +268,8 @@ public final class CognisApplication {
             config.agents().defaults().maxToolIterations()
         );
 
-        AgentStore agentStore = new AgentStore(workspacePath.resolve("agents"));
-        SubagentRegistry subagentRegistry = new SubagentRegistry(workspacePath);
+        AgentStore agentStore = new FileAgentStore(workspacePath.resolve(".cognis/agents/agents.json"));
+        SubagentRegistry subagentRegistry = new SubagentRegistry();
         int maxConcurrent = config.agents().defaults().maxToolIterations() > 0
             ? Math.max(10, config.agents().defaults().maxToolIterations() * 2) : 10;
         AgentPool agentPool = new AgentPool(Executors.newVirtualThreadPerTaskExecutor(), maxConcurrent);
