@@ -1,11 +1,14 @@
 #!/usr/bin/env sh
 set -eu
 
-CONFIG_DIR="${HOME}/.cognis"
+COGNIS_USER="${COGNIS_USER:-cognis}"
+CONFIG_DIR="/home/${COGNIS_USER}/.cognis"
 CONFIG_PATH="${CONFIG_DIR}/config.json"
 WORKSPACE_PATH="${COGNIS_WORKSPACE:-${CONFIG_DIR}/workspace}"
 
+# Fix ownership of volume-mounted directories (runs as root before dropping privileges)
 mkdir -p "${CONFIG_DIR}" "${WORKSPACE_PATH}"
+chown -R "${COGNIS_USER}:${COGNIS_USER}" "${CONFIG_DIR}" 2>/dev/null || true
 
 if [ "${COGNIS_WRITE_CONFIG:-true}" = "true" ] || [ ! -f "${CONFIG_PATH}" ]; then
 
@@ -77,10 +80,12 @@ if [ "${COGNIS_WRITE_CONFIG:-true}" = "true" ] || [ ! -f "${CONFIG_PATH}" ]; the
   }
 }
 JSON
+  chown "${COGNIS_USER}:${COGNIS_USER}" "${CONFIG_PATH}" 2>/dev/null || true
 fi
 
 if [ "$#" -eq 0 ]; then
   set -- gateway --port "${COGNIS_GATEWAY_PORT:-8787}"
 fi
 
-exec java -cp "/app/cognis-app.jar:/app/lib/*" io.cognis.app.CognisApplication "$@"
+# Drop privileges to cognis user and exec the JVM
+exec gosu "${COGNIS_USER}" java -cp "/app/cognis-app.jar:/app/lib/*" io.cognis.app.CognisApplication "$@"

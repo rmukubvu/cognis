@@ -117,6 +117,17 @@ public final class CronExpression {
             return;
         }
 
+        // step with start value: n/step (Quartz-compatible, e.g. "0/30" = every 30 from 0)
+        int slashOnly = part.indexOf('/');
+        if (slashOnly >= 0 && part.indexOf('-') < 0) {
+            int start = clamp(parseInt(part.substring(0, slashOnly), part), min, max);
+            int step  = parseInt(part.substring(slashOnly + 1), part);
+            for (int v = start; v <= max; v += step) {
+                bits.set(v);
+            }
+            return;
+        }
+
         int dashIdx = part.indexOf('-');
         if (dashIdx < 0) {
             // single value

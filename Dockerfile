@@ -44,12 +44,22 @@ WORKDIR /app
 
 RUN useradd --create-home --home-dir /home/cognis --shell /bin/bash cognis
 
+# Install gosu for proper privilege dropping at runtime
+RUN set -eux; \
+    apt-get update; \
+    apt-get install -y --no-install-recommends gosu; \
+    rm -rf /var/lib/apt/lists/*; \
+    gosu nobody true
+
 COPY --from=build /src/cognis-app/target/cognis-app-0.1.0-SNAPSHOT.jar /app/cognis-app.jar
 COPY --from=build /src/cognis-app/target/dependency /app/lib
 COPY docker/entrypoint.sh /app/entrypoint.sh
-RUN chmod +x /app/entrypoint.sh && chown -R cognis:cognis /app /home/cognis
+RUN chmod +x /app/entrypoint.sh && \
+    chown -R cognis:cognis /app /home/cognis && \
+    mkdir -p /home/cognis/.cognis && \
+    chown cognis:cognis /home/cognis/.cognis
 
-USER cognis
+# Run as root so entrypoint can fix volume permissions before exec-ing as cognis
 EXPOSE 8787
 ENTRYPOINT ["/app/entrypoint.sh"]
 
