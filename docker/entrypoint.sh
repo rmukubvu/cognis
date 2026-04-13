@@ -8,17 +8,31 @@ WORKSPACE_PATH="${COGNIS_WORKSPACE:-${CONFIG_DIR}/workspace}"
 mkdir -p "${CONFIG_DIR}" "${WORKSPACE_PATH}"
 
 if [ "${COGNIS_WRITE_CONFIG:-true}" = "true" ] || [ ! -f "${CONFIG_PATH}" ]; then
-  cat > "${CONFIG_PATH}" <<JSON
+
+  # Tier 1a: when STRATUS_GATEWAY_URL is set, route LLM calls through StratusOS.
+  if [ -n "${STRATUS_GATEWAY_URL:-}" ]; then
+    _provider="${COGNIS_PROVIDER:-stratus}"
+    _stratus_base="${STRATUS_GATEWAY_URL}/v1"
+  else
+    _provider="${COGNIS_PROVIDER:-openrouter}"
+    _stratus_base="http://stratusos:7070/v1"
+  fi
+
+  cat > "${CONFIG_PATH}" << JSON
 {
   "agents": {
     "defaults": {
       "workspace": "${WORKSPACE_PATH}",
-      "provider": "${COGNIS_PROVIDER:-openrouter}",
+      "provider": "${_provider}",
       "model": "${COGNIS_MODEL:-anthropic/claude-opus-4-5}",
       "maxToolIterations": 20
     }
   },
   "providers": {
+    "stratus": {
+      "apiKey": "${STRATUS_AUTH_TOKEN:-stratus-dev-token-change-me}",
+      "apiBase": "${_stratus_base}"
+    },
     "openrouter": {
       "apiKey": "${OPENROUTER_API_KEY:-}",
       "apiBase": "${OPENROUTER_API_BASE:-https://openrouter.ai/api/v1}"
@@ -42,8 +56,8 @@ if [ "${COGNIS_WRITE_CONFIG:-true}" = "true" ] || [ ! -f "${CONFIG_PATH}" ]; the
     },
     "bedrock_openai": {
       "apiKey": "${AWS_BEARER_TOKEN:-}",
-      "apiBase": "${BEDROCK_OPENAI_API_BASE:-https://bedrock-runtime.${AWS_REGION:-${AWS_DEFAULT_REGION:-us-east-1}}.amazonaws.com/openai/v1}",
-      "region": "${AWS_REGION:-${AWS_DEFAULT_REGION:-us-east-1}}"
+      "apiBase": "${BEDROCK_OPENAI_API_BASE:-https://bedrock-runtime.us-east-1.amazonaws.com/openai/v1}",
+      "region": "${AWS_REGION:-us-east-1}"
     }
   },
   "tools": {
@@ -53,6 +67,13 @@ if [ "${COGNIS_WRITE_CONFIG:-true}" = "true" ] || [ ! -f "${CONFIG_PATH}" ]; the
         "maxResults": 5
       }
     }
+  },
+  "whatsapp": {
+    "provider": "${WHATSAPP_PROVIDER:-noop}",
+    "accessToken": "${WHATSAPP_ACCESS_TOKEN:-}",
+    "phoneNumberId": "${WHATSAPP_PHONE_NUMBER_ID:-}",
+    "verifyToken": "${WHATSAPP_VERIFY_TOKEN:-}",
+    "appSecret": "${WHATSAPP_APP_SECRET:-}"
   }
 }
 JSON
