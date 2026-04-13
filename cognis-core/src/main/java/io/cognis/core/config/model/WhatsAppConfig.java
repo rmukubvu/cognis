@@ -34,11 +34,15 @@ public record WhatsAppConfig(
     String authToken,
     String fromNumber,
     String accessToken,
-    String phoneNumberId
+    String phoneNumberId,
+    /** Token configured in Meta Business Manager webhook settings. Used to verify inbound subscription requests. */
+    String verifyToken,
+    /** Meta App Secret. When set, HMAC-SHA256 signatures on inbound webhooks are validated. */
+    String appSecret
 ) {
 
     public static WhatsAppConfig defaults() {
-        return new WhatsAppConfig("noop", "", "", "", "", "");
+        return new WhatsAppConfig("noop", "", "", "", "", "", "", "");
     }
 
     /** Returns true if provider is "twilio" (case-insensitive). */

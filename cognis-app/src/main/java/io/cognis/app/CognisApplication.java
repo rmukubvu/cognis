@@ -38,6 +38,7 @@ import io.cognis.core.provider.ProviderRouter;
 import io.cognis.core.heartbeat.HeartbeatScheduler;
 import io.cognis.core.channel.ChannelReplySender;
 import io.cognis.core.channel.MetaCloudApiSender;
+import io.cognis.core.channel.MetaWebhookHandler;
 import io.cognis.core.channel.NoopReplySender;
 import io.cognis.core.channel.TwilioWhatsAppSender;
 import io.cognis.core.config.model.WhatsAppConfig;
@@ -538,7 +539,28 @@ public final class CognisApplication {
             FileContactStore contactStore = new FileContactStore(workspace.resolve(".cognis/contacts.json"));
             FileUsageStore usageStore = new FileUsageStore(workspace.resolve(".cognis/usage.jsonl"));
             UsageService usageService = new UsageService(usageStore);
-            ChannelReplySender replySender = buildReplySender(config.whatsappOrDefaults());
+            WhatsAppConfig waCfg = config.whatsappOrDefaults();
+            ChannelReplySender replySender = buildReplySender(waCfg);
+
+            // ── Tier 3b — Meta Cloud API inbound webhook ──────────────────────
+            // Registers GET  /webhook/meta  (Meta verification challenge)
+            //           POST /webhook/meta  (inbound WhatsApp messages)
+            // Active only when provider=meta and accessToken + phoneNumberId are set.
+            // For local dev: use ngrok → expose port 8787, paste URL in Meta webhook settings.
+            if (waCfg.isMeta() && waCfg.configured()) {
+                MetaWebhookHandler webhookHandler = new MetaWebhookHandler(
+                    waCfg.verifyToken() != null ? waCfg.verifyToken() : "",
+                    waCfg.appSecret()   != null ? waCfg.appSecret()   : "",
+                    orchestrator,
+                    agentSettings,
+                    replySender,
+                    workspace
+                );
+                server.registerRoute("GET",  "/webhook/meta", webhookHandler.verificationHandler());
+                server.registerRoute("POST", "/webhook/meta", webhookHandler.messageHandler());
+                System.out.println("Meta Cloud API webhook active: GET/POST /webhook/meta");
+            }
+
             ToolContext verticalContext = new ToolContext(workspace, Map.of(
                 "agentOrchestrator", orchestrator,
                 "agentSettings",     agentSettings,
